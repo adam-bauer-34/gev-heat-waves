@@ -1,0 +1,21 @@
+name: gev-heat-waves
+channels:
+  - conda-forge
+dependencies:
+  - matplotlib=3.7.0
+  - pandas=1.5.3
+  - scipy=1.10.1
+  - xarray=2022.11.0
+  - seaborn=0.12.2
+  - numpy=1.23.5
+  - netCDF4
+  - scikit-learn
+  - cartopy
+  - dask
+  - jupyterlab
+  - nb_conda_kernels
+  - ipykernels
+  - pip
+  - astropy
+  pip:
+    - ~/personal_python_modules/ambpy
