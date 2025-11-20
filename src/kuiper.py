@@ -47,6 +47,18 @@ def compute_kuiper_stats(ds, var_name='t2m', non_stat=False, print_summary=False
     elif var_name == 't2m_anom':
         gev_append = '_anom'
 
+    if non_stat:
+        ds =_kuiper_stats_nonstat(ds,
+                                  var_name,
+                                  gev_append)
+        
+    else:
+        ds = _kuiper_stats_stat(ds,
+                                var_name,
+                                gev_append)
+        
+
+def _kuiper_stats_nonstat(ds, var_name, gev_append):
     # compute Kuiper statistics for observed and synthetic data
     da_ko = xr.apply_ufunc(
         _kuiper,
@@ -92,7 +104,8 @@ def compute_kuiper_stats(ds, var_name='t2m', non_stat=False, print_summary=False
 
     return ds
 
-def _kuiper(sample, shape, loc, scale):
+def _kuiper(sample, shape, loc, scale,
+            shape_t=0, loc_t=0, scale_t=0):
     sample = sample[np.isfinite(sample)]
 
     if len(sample) < 10:
