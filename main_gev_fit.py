@@ -32,6 +32,6 @@ print("GEV fitting complete.")
 print("Saving datasets...")
 # save datasets
 for VAR, ds_masked in zip(vars, dss_with_fit_on_both):
-    ds_masked.to_netcdf('data/ERA5/landonly/era5_' + VAR + '_' + GRID + '_landonly_gevfitted.nc')
+    ds_masked.to_netcdf('data/ERA5/landonly/era5_' + VAR + '_' + GRID + '_landonly_gev_scipy.nc')
 
 print("Datasets saved to data/ERA5/landonly/")

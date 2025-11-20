@@ -1,16 +1,24 @@
-"""Maximum likelihood fitting function for stationary or nonstationary GEV.
-
-Adam Michael Bauer
-UChicago
-11.11.2025
 """
+Maximum likelihood fitting function for stationary or nonstationary GEV.
+
+Provides:
+- top-level function that ingests an xarray dataset and variable name to fit
+GEV to
+- function to fit GEV at some grid point
+- negative log-likelihood of GEV distribution
+- GEV PDF
+"""
+
+import warnings
 
 import numpy as np
 import xarray as xr
-import pandas as pd
+
+# ignore divide by zero / overflow warnings that pop up during
+# scipy.optimize.minimize calls
+warnings.simplefilter('ignore', RuntimeWarning)
 
 from scipy.optimize import minimize
-from scipy.stats import genextreme
 
 def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
     """Fit (potentially nonstationary) GEV distribution to each (lat, lon) pair
@@ -47,7 +55,8 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
         gev_params = xr.apply_ufunc(
             _mle_fit,
             da,
-            input_core_dims=[[fit_dim]],
+            non_stat,
+            input_core_dims=[[fit_dim], []],
             output_core_dims=[['gev_params']],
             vectorize=True,
             dask='parallelized',
@@ -58,7 +67,8 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
         gev_params = xr.apply_ufunc(
             _mle_fit,
             da,
-            input_core_dims=[[fit_dim]],
+            non_stat,
+            input_core_dims=[[fit_dim], []],
             output_core_dims=[['gev_params']]
         )
 
@@ -66,21 +76,20 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
         # assign shape, loc, and scale parameters to their (lat, lon) coords
         if var_name == 't2m':
             # assign shape, loc, and scale parameters to their (lat, lon) coords
-            ds = ds.assign(loc_0_raw = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(loc_1_raw = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(scale_0_raw = (('lat', 'lon'), gev_params.data[:, :, 2]))
-            ds = ds.assign(scale_1_raw = (('lat', 'lon'), gev_params.data[:, :, 3]))
-            ds = ds.assign(shape_0_raw = (('lat', 'lon'), gev_params.data[:, :, 4]))
-            ds = ds.assign(shape_1_raw = (('lat', 'lon'), gev_params.data[:, :, 5]))
-
+            ds = ds.assign(loc_raw = (('lat', 'lon'), gev_params.data[:, :, 0]))
+            ds = ds.assign(loc_t_raw = (('lat', 'lon'), gev_params.data[:, :, 1]))
+            ds = ds.assign(scale_raw = (('lat', 'lon'), gev_params.data[:, :, 2]))
+            ds = ds.assign(scale_t_raw = (('lat', 'lon'), gev_params.data[:, :, 3]))
+            ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 4]))
+            ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 5]))
 
         elif var_name == 't2m_anom':
             # assign shape, loc, and scale parameters to their (lat, lon) coords
-            ds = ds.assign(loc_0_anom = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(loc_1_anom = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(scale_0_anom = (('lat', 'lon'), gev_params.data[:, :, 2]))
-            ds = ds.assign(scale_1_anom = (('lat', 'lon'), gev_params.data[:, :, 3]))
-            ds = ds.assign(shape_0_anom = (('lat', 'lon'), gev_params.data[:, :, 4]))
+            ds = ds.assign(loc_anom = (('lat', 'lon'), gev_params.data[:, :, 0]))
+            ds = ds.assign(loc_t_anom = (('lat', 'lon'), gev_params.data[:, :, 1]))
+            ds = ds.assign(scale_anom = (('lat', 'lon'), gev_params.data[:, :, 2]))
+            ds = ds.assign(scale_t_anom = (('lat', 'lon'), gev_params.data[:, :, 3]))
+            ds = ds.assign(shape_anom = (('lat', 'lon'), gev_params.data[:, :, 4]))
             ds = ds.assign(shape_1_anom = (('lat', 'lon'), gev_params.data[:, :, 5]))
 
     else:
@@ -97,7 +106,7 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
     # return the amended dataset
     return ds
 
-def _mle_fit(data, SAMPLE_THRES=10, non_stat=False):
+def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     """Fit a potentiallly nonstationary GEV distribution to data via MLE.
     """
 
@@ -107,24 +116,30 @@ def _mle_fit(data, SAMPLE_THRES=10, non_stat=False):
     # if the number of points is less than the sample threshold,
     # return NaNs for the fitted parameters
     if len(data) < SAMPLE_THRES:
-        return np.array([np.nan] * 3)
+        if non_stat:
+            return np.array([np.nan] * 6)
+        else:
+            return np.array([np.nan] * 3)
     
     # try to do the GEV distribution fit and return parameters
     initial_guess = [np.mean(data), 0,  # loc parameters
                      np.std(data), 0.0,  # scale parameters
-                     0.1, 0.0  # shape parameters
+                     0.0, 0.0  # shape parameters
     ]
 
     # set up constraints for MLE fit for nonstationary or stationary cases
     # nonstationary just requires the scale parameter to be positive for all time
+    ## turns out, this requires two constraints: scale_0 > 0 and scale_0 + scale_1 * T > 0
     # stationary sets the trend in parameters to zero, and keeps the scale parameter positive
     if non_stat:
         cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2] + x[3] * len(data)})  # scale_0 + scale_1 * time > 0
+                 'fun': lambda x: x[2] + x[3] * len(data)},  # scale_0 + scale_1 * time > 0
+                {'type': 'ineq',
+                 'fun': lambda x: x[2]})  # scale_0 > 0
 
     else:
         cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2] + x[3] * len(data)},  # scale_0 + scale_1 * time > 0
+                 'fun': lambda x: x[2]},  # scale_0 > 0
                 {'type': 'eq',
                  'fun': lambda x: x[1]},  # loc_1 = 0 (no trend)
                 {'type': 'eq',
@@ -166,7 +181,7 @@ def _negative_log_likelihood(params, data, non_stat=False):
     time = np.arange(0, len(data), 1) / len(data)  # normalized time variable
 
     log_likelihood = - np.sum(
-        np.log([_gev_pdf_pen(x=x,
+        np.log([_gev_pdf(x=x,
                       loc=loc_0 + loc_1 * t,
                       scale=scale_0 + scale_1 * t,
                       shape=shape_0 + shape_1 * t) for x, t in zip(data, time)]
@@ -175,8 +190,12 @@ def _negative_log_likelihood(params, data, non_stat=False):
 
     return log_likelihood
 
-def _gev_pdf(x, loc, scale, shape):
+def _gev_pdf(x, loc, scale, shape,
+                 ret_nan=False, pen=np.exp(-50)):
     """Compute the PDF of the GEV distribution at some point x.
+
+    Function returns the PDF value at point x for parameters (loc, scale, shape),
+    or a penalty of pen when x lies outside the range of support for the PDF.
 
     Parameters
     ----------
@@ -192,71 +211,40 @@ def _gev_pdf(x, loc, scale, shape):
     shape: float
         shape parameter
 
-    Returns
-    -------
-    pdf: array-like
-        PDF evaluated at x
-    """
+    ret_nan: bool (=False)
+        return nan instead of penalty if x is outside the support of the PDF
 
-    if shape > 0:
-        support_lb = loc - scale / shape
-        support_data_mask = x >= support_lb
-    
-    elif shape == 0:
-        support_data_mask = np.ones_like(x, dtype=bool)  # all real numbers are supported
-    
-    else:
-        support_ub = loc - scale / shape
-        support_data_mask = x <= support_ub
-
-    x = np.asarray(x)
-    x_sup = np.where(support_data_mask, x, np.nan)  # set unsupported values to nan
-
-    s = (x_sup - loc) / scale  # standardized variable
-
-    if shape == 0:
-        t_x = np.exp(-s)  # transformation for Gumbel case
-    else:
-        t_x = (1 + shape * s)**(-1 / shape)  # transformation (assuming scale !=0)
-
-    # eval PDF
-    pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
-    return pdf
-
-def _gev_pdf_pen(x, loc, scale, shape, pen=np.exp(-50)):
-    """Compute the PDF of the GEV distribution at some point x.
-
-    Parameters
-    ----------
-    x: array-like
-        Points to evaluate the PDF at
-
-    loc: float
-        location parameter
-
-    scale: float
-        scale parameter
-
-    shape: float
-        shape parameter
+    pen: float (=exp(-50))
+        penalty (usually really really small, so log-likelihood is really big)
 
     Returns
     -------
     pdf: array-like
         PDF evaluated at x
+
+    Examples
+    --------
+    >>> _gev_pdf_pen(2, 1.0, 0.5, -0.1)
+    0.24110591428617528
+
+    >>> _gev_pdf_pen(10, 1.0, 0.5, -0.1)
+    1.9287498479639178e-22  # penalty returns really pen (= np.exp(-50)) when x outside support
+
+    >>> _gev_pdf_pen(10, 1.0, 0.5, -0.1, ret_nan=True)
+    nan  # turning on ret_nan returns nan instead of low PDF outside support
     """
 
     if shape > 0:
         support_lb = loc - scale / shape
         if x < support_lb:
-            return pen  # large penalty for unsupported values
+            if ret_nan:
+                return np.nan  # returning nan sometimes more convenient for evaluation than large penalty
+            else:
+                return pen  # large penalty for unsupported values
         else:
             s = (x - loc) / scale  # standardized variable
 
-            if shape == 0:
-                t_x = np.exp(-s)  # transformation for Gumbel case
-            else:
-                t_x = (1 + shape * s)**(-1 / shape)  # transformation (assuming scale !=0)
+            t_x = (1 + shape * s)**(-1 / shape)  # transformation to Frechet case (assuming scale !=0)
 
             # eval PDF
             pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
@@ -265,14 +253,15 @@ def _gev_pdf_pen(x, loc, scale, shape, pen=np.exp(-50)):
     elif shape < 0:
         support_ub = loc - scale / shape
         if x > support_ub:
-            return pen  # large penalty for unsupported values
+            if ret_nan:
+                return np.nan
+            else:
+                return pen  # large penalty for unsupported values
+            
         else:
             s = (x - loc) / scale  # standardized variable
 
-            if shape == 0:
-                t_x = np.exp(-s)  # transformation for Gumbel case
-            else:
-                t_x = (1 + shape * s)**(-1 / shape)  # transformation (assuming scale !=0)
+            t_x = (1 + shape * s)**(-1 / shape)  # transformation to reveresed Weibull case (assuming scale !=0)
 
             # eval PDF
             pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
@@ -292,6 +281,9 @@ def _gev_pdf_pen(x, loc, scale, shape, pen=np.exp(-50)):
 
 # test cases
 if __name__ == '__main__':
+    import pandas as pd
+    from scipy.stats import genextreme
+
     # simple test case
     np.random.seed(42)
     sample_sizes = [10**i for i in range(2, 6)]
@@ -341,5 +333,4 @@ if __name__ == '__main__':
     print(df)
 
     df.to_csv('../data/checks/mle_sample_size_l2_stat_nonstat.csv', index=False)
-    print("\nDataFrame saved to ../data/checks/mle_sample_size_l2_stat_nonstat.csv")
-
+    print("\nDataFrame saved to ../data/checks/mle_sample_size_l2_stat_nonstat_pen.csv")
