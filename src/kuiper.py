@@ -9,6 +9,7 @@ import numpy as np
 import xarray as xr
 
 from scipy.stats import genextreme
+from .mle import _mle_fit
 from astropy.stats import kuiper
 
 def compute_kuiper_stats(ds, var_name='t2m', print_summary=False):
@@ -112,6 +113,6 @@ def _kuiper_syn(shape, loc, scale, N_SAMPLES):
     else:
         tmp_sample = genextreme.rvs(shape, loc=loc,
                                     scale=scale, size=N_SAMPLES)
-        shape_hat, loc_hat, scale_hat = genextreme.fit(tmp_sample)
+        loc_hat, scale_hat, shape_hat = _mle_fit(tmp_sample)
         tmp_k = _kuiper(tmp_sample, shape_hat, loc_hat, scale_hat)
         return tmp_k
