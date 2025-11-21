@@ -18,13 +18,14 @@ np.random.seed(42)  # set seed for reproducibility
 
 # import command line grid
 GRID = sys.argv[1]
-DO_BOOTSTRAPPING = int(sys.argv[2])
+STAT = sys.argv[2]
+DO_BOOTSTRAPPING = int(sys.argv[3])
 
 print("Importing land-masked data...")
 # define variables and open datasets
-vars = ['t2m_annual_min']
+vars = ['t2m_annual_max']
 dss = [xr.open_dataset('data/ERA5/landonly/era5_' + VAR
-                       + '_' + GRID + '_landonly_gevfitted.nc') for VAR in vars]
+                       + '_' + GRID + '_landonly_gev_' + STAT + '.nc') for VAR in vars]
 
 print("Computing kuiper statistics...")
 # carry out GEV fitting for each dataset
@@ -45,7 +46,7 @@ print("Kuiper statistics computed.")
 print("Saving datasets...")
 # save datasets
 for VAR, ds_masked in zip(vars, dss_with_fit_on_both):
-    ds_masked.to_netcdf('data/ERA5/landonly/era5_' + VAR + '_' + GRID + '_landonly_gev_kuiper.nc')
+    ds_masked.to_netcdf('data/ERA5/landonly/era5_' + VAR + '_' + GRID + '_landonly_gev_' + STAT + '_kuiper.nc')
 
 print("Datasets saved to data/ERA5/landonly/")
 

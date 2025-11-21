@@ -129,17 +129,17 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
 
     # set up constraints for MLE fit for nonstationary or stationary cases
     # nonstationary just requires the scale parameter to be positive for all time
-    ## turns out, this requires two constraints: scale_0 > 0 and scale_0 + scale_1 * T > 0
+    ## turns out, this requires two constraints: scale_0 >= 0 and scale_0 + scale_1 * T >= 0
     # stationary sets the trend in parameters to zero, and keeps the scale parameter positive
     if non_stat:
         cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2] + x[3] * len(data)},  # scale_0 + scale_1 * time > 0
+                 'fun': lambda x: x[2] + x[3] * len(data)},  # scale_0 + scale_1 * time >= 0
                 {'type': 'ineq',
-                 'fun': lambda x: x[2]})  # scale_0 > 0
+                 'fun': lambda x: x[2]})  # scale_0 >= 0
 
     else:
         cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2]},  # scale_0 > 0
+                 'fun': lambda x: x[2]},  # scale_0 >= 0
                 {'type': 'eq',
                  'fun': lambda x: x[1]},  # loc_1 = 0 (no trend)
                 {'type': 'eq',

@@ -67,10 +67,13 @@ def compute_kuiper_stats(ds, var_name='t2m', print_summary=False):
     return ds
 
 
-def _kuiper(sample, shape, loc, scale):
+def _kuiper(sample, shape, loc, scale, SAMPLE_THRES=10):
+    if np.isnan(shape) or np.isnan(loc) or np.isnan(scale):
+        return np.array([np.nan])
+        
     sample = sample[np.isfinite(sample)]
 
-    if len(sample) < 10:
+    if len(sample) < SAMPLE_THRES:
         return np.array([-1])
 
     else:
@@ -89,7 +92,7 @@ def _kuiper_syn(shape, loc, scale, N_SAMPLES):
                                     scale=scale, size=N_SAMPLES)
         loc_hat, scale_hat, shape_hat = _mle_fit(tmp_sample)
         tmp_k = _kuiper(tmp_sample, shape_hat, loc_hat, scale_hat)
-        return tmp_k
+        return np.array([tmp_k])
 
 
 def _print_summary(ds, var_name, gev_append):
