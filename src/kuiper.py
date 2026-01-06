@@ -79,7 +79,7 @@ def _kuiper(sample, shape, loc, scale, SAMPLE_THRES=10):
     else:
         k, _ = kuiper(sample,
                            lambda x: genextreme.cdf(x,
-                                                c=shape, loc=loc, scale=scale))
+                                                c=-shape, loc=loc, scale=scale))
         return np.array([k])
     
 
@@ -88,7 +88,7 @@ def _kuiper_syn(shape, loc, scale, N_SAMPLES):
         return np.full(N_SAMPLES, np.nan)
     
     else:
-        tmp_sample = genextreme.rvs(shape, loc=loc,
+        tmp_sample = genextreme.rvs(-shape, loc=loc,
                                     scale=scale, size=N_SAMPLES)
         loc_hat, scale_hat, shape_hat = _mle_fit(tmp_sample)
         tmp_k = _kuiper(tmp_sample, shape_hat, loc_hat, scale_hat)
