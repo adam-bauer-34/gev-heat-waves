@@ -23,7 +23,7 @@ DO_BOOTSTRAPPING = int(sys.argv[3])
 
 print("Importing land-masked data...")
 # define variables and open datasets
-vars = ['t2m_annual_max']
+vars = ['t2m_annual_max', 't2m_annual_min']
 dss = [xr.open_dataset('data/ERA5/landonly/era5_' + VAR
                        + '_' + GRID + '_landonly_gev_' + STAT + '.nc') for VAR in vars]
 
