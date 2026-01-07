@@ -122,9 +122,19 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
             return np.array([np.nan] * 3)
     
     # try to do the GEV distribution fit and return parameters
-    initial_guess = [np.mean(data), 0,  # loc parameters
-                     np.std(data), 0.0,  # scale parameters
-                     0.0, 0.0  # shape parameters
+    # tune initial guess based on the moments of the samples
+    samp_mean = np.mean(data)
+    samp_median = np.median(data)
+    samp_std = np.std(data)
+    EULER_CONST = 0.5772156649
+
+    scale_guess = samp_std * np.sqrt(6) / np.pi  # initial guess for scale
+    loc_guess = samp_mean + scale_guess * EULER_CONST  # initial guess for loc
+    shape_guess = -0.1  # initial guess for shape
+
+    initial_guess = [loc_guess, 0.0,  # loc parameters
+                     scale_guess, 0.0,  # scale parameters
+                     shape_guess, 0.0  # shape parameters
     ]
 
     # set up constraints for MLE fit for nonstationary or stationary cases
@@ -152,7 +162,8 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
                     initial_guess,
                     args=(data, non_stat),
                     method='SLSQP',  # SLSQP to allow for constraints
-                    constraints=cons
+                    constraints=cons,
+                    jac=_grad_negative_log_likelihood
                     )
 
     # if the fit is successful, return parameters, else return nans
@@ -278,18 +289,345 @@ def _gev_pdf(x, loc, scale, shape,
         # eval PDF
         pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
         return pdf
+    
+def _grad_negative_log_likelihood(params, data, non_stat=False):
+    """Analytic gradients of the negative log-likelihood function.
+    """
+
+    grad = np.zeros_like(params)
+
+    if non_stat:
+        loc_0, loc_1, scale_0, scale_1, shape_0, shape_1 = params
+    else:
+        loc_0, loc_1, scale_0, scale_1, shape_0, shape_1 = params
+        loc_1 = scale_1 = shape_1 = 0
+
+    time = np.arange(0, len(data), 1) / len(data)  # normalized time variable
+
+    # compute the gradient of each stationary component
+    grad[0] = np.sum(
+        [
+            _gev_negloglik_grad_loc0(x=x,
+                                    loc_0=loc_0,
+                                    loc_1=loc_1,
+                                    scale_0=scale_0,
+                                    scale_1=scale_1,
+                                    shape_0=shape_0,
+                                    shape_1=shape_1,
+                                    time=t) for x, t in zip(data, time)
+        ]
+    )
+    
+    grad[2] = np.sum(
+        [
+            _gev_negloglik_grad_scale0(x=x,
+                                      loc_0=loc_0,
+                                      loc_1=loc_1,
+                                      scale_0=scale_0,
+                                      scale_1=scale_1,
+                                      shape_0=shape_0,
+                                      shape_1=shape_1,
+                                      time=t) for x, t in zip(data, time)
+        ]
+    )
+
+    grad[4] = np.sum(
+        [
+            _gev_negloglik_grad_shape0(x=x,
+                                       loc_0=loc_0,
+                                       loc_1=loc_1,
+                                       scale_0=scale_0,
+                                       scale_1=scale_1,
+                                       shape_0=shape_0,
+                                       shape_1=shape_1,
+                                       time=t) for x, t in zip(data, time)
+        ]
+    )
+    
+    # if nonstationry, compute the gradient for each trend bit
+    if non_stat:
+        grad[1] = np.sum(
+            [
+                _gev_negloglik_grad_loc1(x=x,
+                                         loc_0=loc_0,
+                                         loc_1=loc_1,
+                                         scale_0=scale_0,
+                                         scale_1=scale_1,
+                                         shape_0=shape_0,
+                                         shape_1=shape_1,
+                                         time=t) for x, t in zip(data, time)
+            ]
+        )
+        
+        grad[3] = np.sum(
+            [
+                _gev_negloglik_grad_scale1(x=x,
+                                           loc_0=loc_0,
+                                           loc_1=loc_1,
+                                           scale_0=scale_0,
+                                           scale_1=scale_1,
+                                           shape_0=shape_0,
+                                           shape_1=shape_1,
+                                           time=t) for x, t in zip(data, time)
+            ]
+        )
+        
+        grad[5] = np.sum(
+            [
+                _gev_negloglik_grad_shape1(x=x,
+                                           loc_0=loc_0,
+                                           loc_1=loc_1,
+                                           scale_0=scale_0,
+                                           scale_1=scale_1,
+                                           shape_0=shape_0,
+                                           shape_1=shape_1,
+                                           time=t) for x, t in zip(data, time)
+            ]
+        )
+
+    return grad
+
+def _gev_negloglik_grad_loc0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Gradient of negative log-likelihood with respect to loc_0.
+    Placeholder implementation that returns zeros of the same shape as x.
+    """
+
+    loc = loc_0 + loc_1 * time
+    scale = scale_0 + scale_1 * time
+    shape = shape_0 + shape_1 * time
+
+    if shape > 0:
+        support_lb = loc - scale / shape
+        if x < support_lb:
+            return 0.0  # grad = 0 for unsupported values
+        else:
+            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+            dtx_dloc = _dhepler_dloc(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+
+            piece1 = (1 + 1 / shape) * dtx_dloc / tx
+            piece2 = - tx**(-1 - 1/shape) * dtx_dloc / shape
+
+            return piece1 + piece2
+        
+    elif shape < 0:
+        support_ub = loc - scale / shape
+        if x > support_ub:
+            return 0.0  # grad = 0 for unsupported values
+            
+        else:
+            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+            dtx_dloc = _dhepler_dloc(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+
+            piece1 = (1 + 1 / shape) * dtx_dloc / tx
+            piece2 = - tx**(-1 - 1/shape) * dtx_dloc / shape
+
+            return piece1 + piece2
+    
+    ## NOT FUNCTIONAL YET -- WILL ADD SPECIAL CASE FOR GUMBEL DISTRIBUTION LATER
+    else:
+        s = (x - loc) / scale  # standardized variable
+
+        if shape == 0:
+            t_x = np.exp(-s)  # transformation for Gumbel case
+        else:
+            t_x = (1 + shape * s)**(-1 / shape)  # transformation (assuming scale !=0)
+
+        # eval PDF
+        pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
+        return pdf
+
+
+def _gev_negloglik_grad_loc1(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Gradient of negative log-likelihood with respect to loc_1 (trend).
+    Placeholder implementation that returns zeros of the same shape as x.
+    """
+    return time * _gev_negloglik_grad_loc0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+
+
+def _gev_negloglik_grad_scale0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Gradient of negative log-likelihood with respect to scale_0.
+    Placeholder implementation that returns zeros of the same shape as x.
+    """
+
+    loc = loc_0 + loc_1 * time
+    scale = scale_0 + scale_1 * time
+    shape = shape_0 + shape_1 * time
+
+    if shape > 0:
+        support_lb = loc - scale / shape
+        if x < support_lb:
+            return 0.0  # grad = 0 for unsupported values
+        else:
+            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+            dtx_dscale = _dhepler_dscale(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+
+            piece1 = 1 / scale
+            piece2 = (1 + 1 / shape) * dtx_dscale / tx
+            piece3 = - tx**(-1 - 1/shape) * dtx_dscale / shape
+
+            return piece1 + piece2 + piece3
+        
+    elif shape < 0:
+        support_ub = loc - scale / shape
+        if x > support_ub:
+            return 0.0  # grad = 0 for unsupported values
+            
+        else:
+            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+            dtx_dscale = _dhepler_dscale(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+
+            piece1 = 1 / scale
+            piece2 = (1 + 1 / shape) * dtx_dscale / tx
+            piece3 = - tx**(-1 - 1/shape) * dtx_dscale / shape
+
+            return piece1 + piece2 + piece3
+    
+    ## NOT FUNCTIONAL YET -- WILL ADD SPECIAL CASE FOR GUMBEL DISTRIBUTION LATER
+    else:
+        s = (x - loc) / scale  # standardized variable
+
+        if shape == 0:
+            t_x = np.exp(-s)  # transformation for Gumbel case
+        else:
+            t_x = (1 + shape * s)**(-1 / shape)  # transformation (assuming scale !=0)
+
+        # eval PDF
+        pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
+        return pdf
+
+
+def _gev_negloglik_grad_scale1(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Gradient of negative log-likelihood with respect to scale_1 (trend).
+    Placeholder implementation that returns zeros of the same shape as x.
+    """
+    return time * _gev_negloglik_grad_scale0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+
+
+def _gev_negloglik_grad_shape0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Gradient of negative log-likelihood with respect to shape_0.
+    Placeholder implementation that returns zeros of the same shape as x.
+    """
+    loc = loc_0 + loc_1 * time
+    scale = scale_0 + scale_1 * time
+    shape = shape_0 + shape_1 * time
+
+
+    if shape > 0:
+        support_lb = loc - scale / shape
+        if x < support_lb:
+            return 0.0  # grad = 0 for unsupported values
+        
+        else:
+            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+            dtx_dshape = _dhepler_dshape(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+
+            piece1 = (-1/shape**2) * np.log(tx)
+            piece2 = (1 + 1/shape) * dtx_dshape / tx
+            piece3 = tx**(-1/shape) * (
+                (1/shape**2) * np.log(tx) - dtx_dshape / (shape * tx)
+            )
+
+            return piece1 + piece2 + piece3
+        
+    elif shape < 0:
+        support_ub = loc - scale / shape
+        if x > support_ub:
+            return 0.0  # grad = 0 for unsupported values
+        
+        else:
+            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+            dtx_dshape = _dhepler_dshape(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+
+            piece1 = (-1/shape**2) * np.log(tx)
+            piece2 = (1 + 1/shape) * dtx_dshape / tx
+            piece3 = tx**(-1/shape) * (
+                (1/shape**2) * np.log(tx) - dtx_dshape / (shape * tx)
+            )
+
+            return piece1 + piece2 + piece3
+    
+    ## NOT FUNCTIONAL YET -- WILL ADD SPECIAL CASE FOR GUMBEL DISTRIBUTION LATER
+    else:
+        s = (x - loc) / scale  # standardized variable
+
+        if shape == 0:
+            t_x = np.exp(-s)  # transformation for Gumbel case
+        else:
+            t_x = (1 + shape * s)**(-1 / shape)  # transformation (assuming scale !=0)
+
+        # eval PDF
+        pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
+        return pdf
+
+
+def _gev_negloglik_grad_shape1(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Gradient of negative log-likelihood with respect to shape_1 (trend).
+    Placeholder implementation that returns zeros of the same shape as x.
+    """
+    return time * _gev_negloglik_grad_shape0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
+
+
+def _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Helper function to compute standardized variable and transformation.
+    """
+
+    loc = loc_0 + loc_1 * time
+    scale = scale_0 + scale_1 * time
+    shape = shape_0 + shape_1 * time
+
+    tx = 1 + shape * (x - loc) / scale
+    return tx
+
+
+def _dhepler_dloc(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Helper function to compute derivative of standardized variable transformation
+    with respect to loc parameter.
+    """
+    scale = scale_0 + scale_1 * time
+    shape = shape_0 + shape_1 * time
+
+    dtx_dloc = -shape / scale
+    return dtx_dloc
+
+
+def _dhepler_dscale(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Helper function to compute derivative of standardized variable transformation
+    with respect to scale parameter.
+    """
+    loc = loc_0 + loc_1 * time
+    scale = scale_0 + scale_1 * time
+    shape = shape_0 + shape_1 * time
+
+    dtx_dscale = -shape * (x - loc) / (scale**2)
+    return dtx_dscale
+
+
+def _dhepler_dshape(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
+    """Helper function to compute derivative of standardized variable transformation
+    with respect to shape parameter.
+    """
+    loc = loc_0 + loc_1 * time
+    scale = scale_0 + scale_1 * time
+    shape = shape_0 + shape_1 * time
+
+    dtx_dshape = (x - loc) / scale
+    return dtx_dshape
+
 
 # test cases
 if __name__ == '__main__':
     import pandas as pd
     from scipy.stats import genextreme
+    import time
 
     # simple test case
     np.random.seed(42)
-    sample_sizes = [10**i for i in range(2, 6)]
+    sample_sizes = [10**i for i in range(2, 3)]
     non_stat_l2 = []
     stat_l2 = []
+    times = []
     for ss in sample_sizes:
+        t0 = time.time()
         print(f"Sample size: {ss}")
         data = genextreme.rvs(c=-0.1, loc=2, scale=1, size=ss)
         params = _mle_fit(data, SAMPLE_THRES=10, non_stat=False)
@@ -303,12 +641,12 @@ if __name__ == '__main__':
         print(f"Stationary fit params: {params}")
 
         params_nonstat = [1.0, 0.01, 1.0, 0.02, 0.1, 0.001]
-        time = np.arange(0, ss, 1) / ss  # 100 years of real data
+        years = np.arange(0, ss, 1) / ss  # 100 years of real data
         data_nonstat = np.array([genextreme.rvs(
             c=-(params_nonstat[4] + params_nonstat[5] * t),
             loc=(params_nonstat[0] + params_nonstat[1] * t),
             scale=(params_nonstat[2] + params_nonstat[3] * t),
-            size=1)[0] for t in time])
+            size=1)[0] for t in years])
     
         fitted_param_nonstat = _mle_fit(data_nonstat, SAMPLE_THRES=10, non_stat=True)
         tmp_nonstat_l2 = np.sqrt(
@@ -322,15 +660,30 @@ if __name__ == '__main__':
         non_stat_l2.append(tmp_nonstat_l2)
         print(f"Nonstationary fit params: {fitted_param_nonstat}")
 
+        # record elapsed time for this iteration
+        times.append(time.time() - t0)
+
     # Create DataFrame and save to CSV
     df = pd.DataFrame({
         'sample_size': sample_sizes,
         'stationary_l2_error': stat_l2,
-        'nonstationary_l2_error': non_stat_l2
+        'nonstationary_l2_error': non_stat_l2,
+        'iteration_time': times
     })
 
     # print dataframe and save to data/checks
     print(df)
 
-    df.to_csv('../data/checks/mle_sample_size_l2_stat_nonstat.csv', index=False)
-    print("\nDataFrame saved to ../data/checks/mle_sample_size_l2_stat_nonstat_pen.csv")
+    # df.to_csv('data/checks/mle_sample_size_l2_stat_nonstat.csv', index=False)
+    # print("\nDataFrame saved to data/checks/mle_sample_size_l2_stat_nonstat.csv")
+
+    """
+    import matplotlib.pyplot as plt 
+
+    xs = np.arange(-100, 100, 1.)
+    ys = np.log([_gev_pdf(x, loc=20, scale=1.5, shape=0.25)
+                 for x in xs])
+
+    plt.plot(xs, ys)
+    plt.show()
+    """
