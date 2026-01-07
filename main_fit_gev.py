@@ -4,7 +4,7 @@ Adam Michael Bauer
 UChicago
 11.10.2025
 
-To run: main_my_gev.py GRID STAT
+To run: main_fit_gev.py GRID STAT
 """
 
 import sys
