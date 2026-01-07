@@ -81,7 +81,7 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             ds = ds.assign(scale_raw = (('lat', 'lon'), gev_params.data[:, :, 2]))
             ds = ds.assign(scale_t_raw = (('lat', 'lon'), gev_params.data[:, :, 3]))
             ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 4]))
-            ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 5]))
+            ds = ds.assign(shape_t_raw = (('lat', 'lon'), gev_params.data[:, :, 5]))
 
         elif var_name == 't2m_anom':
             # assign shape, loc, and scale parameters to their (lat, lon) coords
@@ -90,7 +90,7 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             ds = ds.assign(scale_anom = (('lat', 'lon'), gev_params.data[:, :, 2]))
             ds = ds.assign(scale_t_anom = (('lat', 'lon'), gev_params.data[:, :, 3]))
             ds = ds.assign(shape_anom = (('lat', 'lon'), gev_params.data[:, :, 4]))
-            ds = ds.assign(shape_1_anom = (('lat', 'lon'), gev_params.data[:, :, 5]))
+            ds = ds.assign(shape_t_anom = (('lat', 'lon'), gev_params.data[:, :, 5]))
 
     else:
         if var_name == 't2m':
@@ -124,7 +124,6 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     # try to do the GEV distribution fit and return parameters
     # tune initial guess based on the moments of the samples
     samp_mean = np.mean(data)
-    samp_median = np.median(data)
     samp_std = np.std(data)
     EULER_CONST = 0.5772156649
 
