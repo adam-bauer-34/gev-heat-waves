@@ -163,7 +163,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
                     args=(data, non_stat),
                     method='SLSQP',  # SLSQP to allow for constraints
                     constraints=cons,
-                    # jac=_grad_negative_log_likelihood
+                    jac=_grad_negative_log_likelihood
                     )
 
     # if the fit is successful, return parameters, else return nans
