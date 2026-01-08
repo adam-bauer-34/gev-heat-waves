@@ -16,16 +16,17 @@ import xarray as xr
 import xesmf as xe
 import numpy as np
 
+from config import DATA_ROOT
 from src.check_plots import plot_side_by_side
 
 # import command line stuff
-GRID = sys.argv[1]
-MAKE_CHECK_PLOTS = int(sys.argv[2])
+GRID, MAKE_CHECK_PLOTS = sys.argv[1:]
+MAKE_CHECK_PLOTS = bool(int(MAKE_CHECK_PLOTS))
 
 print("Importing data...")
 # load in full ERA5 data
 vars = ['t2m_annual_max', 't2m_annual_mean', 't2m_annual_min']
-dss = [xr.open_dataset('data/ERA5/era5_' + VAR + '_' + GRID + '.nc') for VAR in vars]
+dss = [xr.open_dataset(DATA_ROOT / 'ERA5' / ('era5_' + VAR + '_' + GRID + '.nc')) for VAR in vars]
 
 # first compute anomalies relative to annual mean for maximum and minimum datasets
 da_t2m_max_anoms = dss[0]['t2m'] - dss[1]['t2m']
@@ -36,7 +37,7 @@ dss[0] = dss[0].assign({'t2m_anom': da_t2m_max_anoms})
 dss[2] = dss[2].assign({'t2m_anom': da_t2m_min_anoms})
 
 # load in land/sea mask
-land_mask = xr.open_dataset('data/ERA5/era5_land_mask.nc')
+land_mask = xr.open_dataset(DATA_ROOT / 'ERA5' / 'era5_land_mask.nc')
 
 # make masks for lat / lon ranges in ERA5 data to match land mask
 lat_mask = (land_mask.latitude >= min(dss[0].lat)) & (land_mask.latitude <= max(dss[0].lat))
@@ -65,11 +66,11 @@ ds_maskeds = [ds.where(land_mask_regridded['lsm'].data[0] > MASK_THRES, np.nan) 
 
 # save datasets
 for VAR, ds_masked in zip(vars, ds_maskeds):
-    ds_masked.to_netcdf('data/ERA5/landonly/era5_' + VAR + '_' + GRID + '_landonly.nc')
+    ds_masked.to_netcdf(DATA_ROOT / 'ERA5' / 'landonly' / ('era5_' + VAR + '_' + GRID + '_landonly.nc'))
 
 print("Complete.")
 
-print('Saved land-masked datasets to data/ERA5/landonly/')
+print('Saved land-masked datasets to {}/ERA5/landonly/'.format(DATA_ROOT))
 
 if MAKE_CHECK_PLOTS:
     print("Making check plots...")
