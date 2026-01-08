@@ -7,7 +7,7 @@ Adam Michael Bauer
 UChicago
 11.10.2025
 
-To run: preprocessing_landmasking.py VAR GRID MAKE_CHECK_PLOTS
+To run: pproc_era5_landmasking.py VAR GRID MAKE_CHECK_PLOTS
 """
 
 import sys
