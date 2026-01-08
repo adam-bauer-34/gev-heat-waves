@@ -213,3 +213,4 @@ test.py
 dep/
 old/
 mma/
+config/paths.yaml

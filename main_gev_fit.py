@@ -11,17 +11,17 @@ import sys
 
 import xarray as xr
 
+from config import DATA_ROOT
 from src.mle import ds_mle_fit
 
 # import command line grid
-GRID = sys.argv[1]
-STAT = sys.argv[2]
+GRID, STAT = sys.argv[1:]
 
 print("Importing land-masked data...")
 # define variables and open datasets
 vars = ['t2m_annual_max', 't2m_annual_min']
-dss = [xr.open_dataset('data/ERA5/landonly/era5_' + VAR
-                       + '_' + GRID + '_landonly.nc') for VAR in vars]
+fnames = ['era5_' + VAR + '_' + GRID + '_landonly.nc' for VAR in vars]
+dss = [xr.open_dataset(DATA_ROOT / 'ERA5' /'landonly' / fname) for fname in fnames]
 
 # carry out GEV fitting for each dataset
 if STAT == 'stat':
@@ -44,7 +44,7 @@ print("GEV fitting complete.")
 print("Saving datasets...")
 # save datasets
 for VAR, ds_masked in zip(vars, dss_with_fit_on_both):
-    ds_masked.to_netcdf('data/ERA5/landonly/era5_' + VAR + '_' + GRID + '_landonly_gev_'
-                        + STAT + '.nc')
+    ds_masked.to_netcdf(DATA_ROOT / 'ERA5' / 'landonly' / ('era5_' + VAR + '_' + GRID + '_landonly_gev_'
+                        + STAT + '.nc'))
 
-print("Datasets saved to data/ERA5/landonly/")
+print("Datasets saved to f{DATA_ROOT}/ERA5/landonly/")
