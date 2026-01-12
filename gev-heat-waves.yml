@@ -13,9 +13,10 @@ dependencies:
   - cartopy
   - dask
   - jupyterlab
+  - xesmf
   - nb_conda_kernels
-  - ipykernels
-  - pip
+  - ipykernel
   - astropy
-  pip:
-    - ~/personal_python_modules/ambpy
+  - pip
+  - pip:
+      - ~/personal_python_modules/ambpy

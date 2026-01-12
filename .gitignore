@@ -213,4 +213,6 @@ test.py
 dep/
 old/
 mma/
+
+# ignore data paths (different on each machine) but keep config/ folder
 config/paths.yaml
