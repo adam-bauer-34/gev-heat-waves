@@ -1,6 +1,6 @@
 import numpy as np
 import xarray as xr
-from config import DATA_ROOT
+from src.config import DATA_ROOT
 
 def compute_ecdf(values, extend_lower=True,
                 extend_upper=False, ub=None):

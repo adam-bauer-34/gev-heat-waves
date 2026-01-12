@@ -4,7 +4,7 @@ Adam Michael Bauer
 UChicago
 Jan 2026
 
-To run: main_gev_fit.py GRID STAT
+To run: main_gev_fit.py STAT
 """
 
 import os
@@ -36,25 +36,38 @@ for var in vars:
     # make all landonly file names
     fnames = [f for f in data_path.glob("*_landonly.nc")]
 
+    for f in fnames:
+        fparts = f.stem.split('_')
+        model_name = '_'.join(fparts[2:3])
+
+        print('-'*width)
+        print("🪛 Working on ", model_name)
+        ds = xr.open_dataset(f)
+
+        # carry out GEV fits
+        print('-'*width)
+        print("🧮 Doing GEV fits on raw data...")
+        ds_fit = ds_mle_fit(ds, var_name='tas', fit_dim='year')
+
     # open dataset
     print('-'*width)
     print("🪏 Importing land-masked data...")
-    # dss = [xr.open_dataset(DATA_ROOT / 'ERA5' /'landonly' / fname) for fname in fnames]
+    dss = [xr.open_dataset(DATA_ROOT / 'CMIP6'/ var / f) for f in fnames]
 
     # carry out GEV fitting for each dataset
     if STAT == 'stat':
         print('-'*width)
         print("🧮 Doing stationary GEV fits...")
-        #dss_with_fit = [ds_mle_fit(ds, var_name='t2m') for ds in dss]
-        #dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom') for ds in dss_with_fit]
+        #dss_with_fit = [ds_mle_fit(ds, var_name='tas') for ds in dss]
+        #dss_with_fit_on_both = [ds_mle_fit(ds, var_name='tas_anom') for ds in dss_with_fit]
 
     elif STAT == 'nonstat':
         print('-'*width)
         print("🧮 Doing nonstationary GEV fits...")
-        #dss_with_fit = [ds_mle_fit(ds, var_name='t2m',
-        #                        fit_dim='year', non_stat=True) for ds in dss]
-        #dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom',
-        #                                fit_dim='year', non_stat=True) for ds in dss_with_fit]
+        # dss_with_fit = [ds_mle_fit(ds, var_name='tas',
+        #                         fit_dim='year', non_stat=True) for ds in dss]
+        dss_with_fit_on_both = [ds_mle_fit(ds, var_name='tas_anom',
+                                        fit_dim='year', non_stat=True) for ds in dss_with_fit]
 
     else:
         raise ValueError("Invalid entry for command line argument `STAT` (supports 'stat' or 'nonstat').")

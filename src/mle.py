@@ -74,7 +74,7 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
 
     if non_stat:
         # assign shape, loc, and scale parameters to their (lat, lon) coords
-        if var_name == 't2m':
+        if var_name == 't2m' or var_name == 'tas':
             # assign shape, loc, and scale parameters to their (lat, lon) coords
             ds = ds.assign(loc_raw = (('lat', 'lon'), gev_params.data[:, :, 0]))
             ds = ds.assign(loc_t_raw = (('lat', 'lon'), gev_params.data[:, :, 1]))
@@ -83,7 +83,7 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 4]))
             ds = ds.assign(shape_t_raw = (('lat', 'lon'), gev_params.data[:, :, 5]))
 
-        elif var_name == 't2m_anom':
+        elif var_name == 't2m_anom' or var_name == 'tas_anom':
             # assign shape, loc, and scale parameters to their (lat, lon) coords
             ds = ds.assign(loc_anom = (('lat', 'lon'), gev_params.data[:, :, 0]))
             ds = ds.assign(loc_t_anom = (('lat', 'lon'), gev_params.data[:, :, 1]))
@@ -93,12 +93,12 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             ds = ds.assign(shape_t_anom = (('lat', 'lon'), gev_params.data[:, :, 5]))
 
     else:
-        if var_name == 't2m':
+        if var_name == 't2m' or var_name == 'tas':
             ds = ds.assign(loc_raw = (('lat', 'lon'), gev_params.data[:, :, 0]))
             ds = ds.assign(scale_raw = (('lat', 'lon'), gev_params.data[:, :, 1]))
             ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 2]))
 
-        elif var_name == 't2m_anom':
+        elif var_name == 't2m_anom' or var_name == 'tas_anom':
             ds = ds.assign(loc_anom = (('lat', 'lon'), gev_params.data[:, :, 0]))
             ds = ds.assign(scale_anom = (('lat', 'lon'), gev_params.data[:, :, 1]))
             ds = ds.assign(shape_anom = (('lat', 'lon'), gev_params.data[:, :, 2]))

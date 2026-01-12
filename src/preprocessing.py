@@ -10,15 +10,16 @@ import shutil
 import xesmf as xe
 import xarray as xr
 
-from ..config.paths import DATA_ROOT
+from src.config import DATA_ROOT
 
 # terminal length
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 
 def make_regridded_land_mask(GRID='1deg'):
-    print('-'*width)
+    print('='*width)
     print('⛰️ Regridding land mask...')
+    print('='*width)
 
     # import high-res land mask
     land_mask = xr.open_dataset(DATA_ROOT / 'ERA5' / 'era5_land_mask.nc')

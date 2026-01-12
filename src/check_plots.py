@@ -7,7 +7,7 @@ import cartopy.feature as cfeature
 
 # import custom plotting stuff
 from ambpy.plotutils import make_figure_filename
-plt.style.use('ambpy')
+# plt.style.use('ambpy')
 
 def plot_side_by_side(data, data2, titles=("Dataset 1", "Dataset 2"), val_plotted='Value',
                       save_figs=False,
@@ -56,3 +56,5 @@ def plot_side_by_side(data, data2, titles=("Dataset 1", "Dataset 2"), val_plotte
     # plt.tight_layout()
     if save_figs:
         plt.savefig(make_figure_filename(*filename_args), dpi=300)
+
+    plt.close()  # close to avoid memory issues
