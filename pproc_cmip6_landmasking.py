@@ -98,8 +98,13 @@ for var in vars:
                     continue
 
         # compute anomalies relative to the annual mean
-        da_anom = ds['tas'] - ds_mean['tas']
+        # if max, do data - mean, if min, do mean - data
+        if var == 'tas_annual_max':
+            da_anom = ds['tas'] - ds_mean['tas']
+        else:
+            da_anom = ds_mean['tas'] - ds['tas']
 
+        # assign the anomaly data array to the dataset
         ds = ds.assign({'tas_anom': da_anom})
 
         # mask out ocean / non-land
@@ -124,8 +129,8 @@ for var in vars:
         # make check plots if desired
         if MAKE_CHECK_PLOTS:
             plot_side_by_side(
-                ds_masked['tas'].sel(year=2000),
-                ds['tas'].sel(year=2000),
+                ds_masked['tas_anom'].sel(year=2000),
+                ds['tas_anom'].sel(year=2000),
                 titles=("Masked tas", "Original tas"),
                 val_plotted='tas',
                 save_figs=True,

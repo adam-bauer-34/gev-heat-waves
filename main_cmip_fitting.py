@@ -41,7 +41,6 @@ for var in vars:
         data_path / 'gev' / (f.stem + "_gev_{}".format(STAT) + f.suffix)
     )
 
-""" 
     for f in fnames:
         fparts = f.stem.split('_')
         model_name = '_'.join(fparts[2:3])
@@ -83,7 +82,7 @@ for var in vars:
         )
 
         print("✍️ Dataset successfully saved.")
-"""
+
 print('='*width)
 print("🥳 All done! 🥳")
 print('='*width)
