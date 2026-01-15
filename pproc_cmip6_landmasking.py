@@ -45,7 +45,7 @@ try:
     land_mask = xr.open_dataset(DATA_ROOT / 'ERA5' / 'era5_land_mask_1deg.nc')
 
 except FileNotFoundError:
-    print("🧑‍🍳 No land mask found, making a new one...")
+    print("🧑‍🍳 No regridded land mask found, making a new one...")
     make_regridded_land_mask(GRID='1deg')
     land_mask = xr.open_dataset(DATA_ROOT / 'ERA5' / 'era5_land_mask_1deg.nc')
 
