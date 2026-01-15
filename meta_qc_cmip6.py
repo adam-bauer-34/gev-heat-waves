@@ -10,11 +10,12 @@ To run: python meta_qc_cmip6.py [data-type]
 import sys
 import shutil
 import yaml
-from datetime import datetime
 
 import numpy as np
 import xarray as xr
 
+from src.utils import yaml_safe
+from datetime import datetime
 from pathlib import Path
 from config import DATA_ROOT
 
@@ -134,6 +135,7 @@ for f in meta_files:
     # store model metadata in the dict
     meta[model] = model_meta
 
+# make final dictionaries
 metas = {}
 qcs = {}
 
@@ -141,29 +143,11 @@ qcs = {}
 metas['generated_on'] = datetime.now().isoformat()
 qcs['generated_on'] = datetime.now().isoformat()
 
+# populate
 metas['models'] = meta
 qcs['models'] = qc
 
-from pprint import pprint
-pprint(metas)
-pprint(qcs)
-
-def yaml_safe(obj):
-    if isinstance(obj, dict):
-        return {k: yaml_safe(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [yaml_safe(v) for v in obj]
-    elif isinstance(obj, set):
-        return sorted(yaml_safe(v) for v in obj)
-    elif isinstance(obj, Path):
-        return str(obj)
-    elif isinstance(obj, datetime):
-        return obj.isoformat()
-    elif isinstance(obj, np.generic):
-        return obj.item()
-    else:
-        return obj
-
+# save dictionaries as .yamls 
 outpath_meta = Path('config/meta.generated.yaml')
 with open(outpath_meta, 'w') as f:
     yaml.safe_dump(
@@ -184,4 +168,5 @@ with open(outpath_qc, 'w') as f:
         indent=2
     )
 
-print("stuff successfully saved!")
+print('*'*width)
+print("QC and metadata successfully saved!")

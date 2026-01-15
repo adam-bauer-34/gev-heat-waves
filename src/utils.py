@@ -1,6 +1,11 @@
+
 import numpy as np
 import xarray as xr
+
+from datetime import datetime
 from src.config import DATA_ROOT
+from pathlib import Path
+
 
 def compute_ecdf(values, extend_lower=True,
                 extend_upper=False, ub=None):
@@ -78,3 +83,20 @@ def check_lat_lon_grids_consistent():
         print("Some datasets have mismatched lat/lon grids.")
     
     return consistent
+
+
+def yaml_safe(obj):
+    if isinstance(obj, dict):
+        return {k: yaml_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [yaml_safe(v) for v in obj]
+    elif isinstance(obj, set):
+        return sorted(yaml_safe(v) for v in obj)
+    elif isinstance(obj, Path):
+        return str(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, np.generic):
+        return obj.item()
+    else:
+        return obj
