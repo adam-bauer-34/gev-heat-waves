@@ -83,14 +83,23 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 4]))
             ds = ds.assign(shape_t_raw = (('lat', 'lon'), gev_params.data[:, :, 5]))
 
-        elif var_name == 't2m_anom':
+        elif var_name == 't2m_anom_annmean':
             # assign shape, loc, and scale parameters to their (lat, lon) coords
-            ds = ds.assign(loc_anom = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(loc_t_anom = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(scale_anom = (('lat', 'lon'), gev_params.data[:, :, 2]))
-            ds = ds.assign(scale_t_anom = (('lat', 'lon'), gev_params.data[:, :, 3]))
-            ds = ds.assign(shape_anom = (('lat', 'lon'), gev_params.data[:, :, 4]))
-            ds = ds.assign(shape_t_anom = (('lat', 'lon'), gev_params.data[:, :, 5]))
+            ds = ds.assign(loc_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 0]))
+            ds = ds.assign(loc_t_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 1]))
+            ds = ds.assign(scale_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 2]))
+            ds = ds.assign(scale_t_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 3]))
+            ds = ds.assign(shape_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 4]))
+            ds = ds.assign(shape_t_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 5]))
+
+        elif var_name == 't2m_anom_trend':
+            # assign shape, loc, and scale parameters to their (lat, lon) coords
+            ds = ds.assign(loc_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 0]))
+            ds = ds.assign(loc_t_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 1]))
+            ds = ds.assign(scale_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 2]))
+            ds = ds.assign(scale_t_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 3]))
+            ds = ds.assign(shape_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 4]))
+            ds = ds.assign(shape_t_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 5]))
 
     else:
         if var_name == 't2m':
@@ -98,13 +107,19 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             ds = ds.assign(scale_raw = (('lat', 'lon'), gev_params.data[:, :, 1]))
             ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 2]))
 
-        elif var_name == 't2m_anom':
-            ds = ds.assign(loc_anom = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(scale_anom = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(shape_anom = (('lat', 'lon'), gev_params.data[:, :, 2]))
+        elif var_name == 't2m_anom_annmean':
+            ds = ds.assign(loc_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 0]))
+            ds = ds.assign(scale_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 1]))
+            ds = ds.assign(shape_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 2]))
+
+        elif var_name == 't2m_anom_trend':
+            ds = ds.assign(loc_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 0]))
+            ds = ds.assign(scale_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 1]))
+            ds = ds.assign(shape_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 2]))
 
     # return the amended dataset
     return ds
+
 
 def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     """Fit a potentiallly nonstationary GEV distribution to data via MLE.
