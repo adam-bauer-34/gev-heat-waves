@@ -1,8 +1,7 @@
-generated_on: '2026-01-15T17:24:42.400381'
+generated_on: '2026-01-23T17:28:38.510446'
 models:
   ACCESS-CM2:
     N_members: 3
-    active: false
     ensemble_members:
     - ACCESS-CM2_r1i1p1f1
     - ACCESS-CM2_r2i1p1f1
@@ -10,7 +9,6 @@ models:
     primary_member: ACCESS-CM2_r1i1p1f1
   ACCESS-ESM1-5:
     N_members: 30
-    active: false
     ensemble_members:
     - ACCESS-ESM1-5_r10i1p1f1
     - ACCESS-ESM1-5_r11i1p1f1
@@ -45,7 +43,6 @@ models:
     primary_member: ACCESS-ESM1-5_r10i1p1f1
   AWI-CM-1-1-MR:
     N_members: 5
-    active: true
     ensemble_members:
     - AWI-CM-1-1-MR_r1i1p1f1
     - AWI-CM-1-1-MR_r2i1p1f1
@@ -55,13 +52,11 @@ models:
     primary_member: AWI-CM-1-1-MR_r1i1p1f1
   AWI-ESM-1-1-LR:
     N_members: 1
-    active: false
     ensemble_members:
     - AWI-ESM-1-1-LR_r1i1p1f1
     primary_member: AWI-ESM-1-1-LR_r1i1p1f1
   BCC-CSM2-MR:
     N_members: 3
-    active: true
     ensemble_members:
     - BCC-CSM2-MR_r1i1p1f1
     - BCC-CSM2-MR_r2i1p1f1
@@ -69,7 +64,6 @@ models:
     primary_member: BCC-CSM2-MR_r1i1p1f1
   BCC-ESM1:
     N_members: 3
-    active: false
     ensemble_members:
     - BCC-ESM1_r1i1p1f1
     - BCC-ESM1_r2i1p1f1
@@ -77,13 +71,11 @@ models:
     primary_member: BCC-ESM1_r1i1p1f1
   CAMS-CSM1-0:
     N_members: 1
-    active: true
     ensemble_members:
     - CAMS-CSM1-0_r1i1p1f1
     primary_member: CAMS-CSM1-0_r1i1p1f1
   CESM2:
     N_members: 11
-    active: false
     ensemble_members:
     - CESM2_r10i1p1f1
     - CESM2_r11i1p1f1
@@ -99,7 +91,6 @@ models:
     primary_member: CESM2_r10i1p1f1
   CESM2-FV2:
     N_members: 3
-    active: false
     ensemble_members:
     - CESM2-FV2_r1i1p1f1
     - CESM2-FV2_r2i1p1f1
@@ -107,7 +98,6 @@ models:
     primary_member: CESM2-FV2_r1i1p1f1
   CESM2-WACCM:
     N_members: 4
-    active: true
     ensemble_members:
     - CESM2-WACCM_day
     - CESM2-WACCM_r1i1p1f1
@@ -116,7 +106,6 @@ models:
     primary_member: CESM2-WACCM_day
   CESM2-WACCM-FV2:
     N_members: 3
-    active: false
     ensemble_members:
     - CESM2-WACCM-FV2_r1i1p1f1
     - CESM2-WACCM-FV2_r2i1p1f1
@@ -124,31 +113,26 @@ models:
     primary_member: CESM2-WACCM-FV2_r1i1p1f1
   CMCC-CM2-HR4:
     N_members: 1
-    active: false
     ensemble_members:
     - CMCC-CM2-HR4_r1i1p1f1
     primary_member: CMCC-CM2-HR4_r1i1p1f1
   CMCC-CM2-SR5:
     N_members: 1
-    active: true
     ensemble_members:
     - CMCC-CM2-SR5_r1i1p1f1
     primary_member: CMCC-CM2-SR5_r1i1p1f1
   CMCC-ESM2:
     N_members: 1
-    active: true
     ensemble_members:
     - CMCC-ESM2_r1i1p1f1
     primary_member: CMCC-ESM2_r1i1p1f1
   CNRM-CM6-1-HR:
     N_members: 1
-    active: true
     ensemble_members:
     - CNRM-CM6-1-HR_r1i1p1f1
     primary_member: CNRM-CM6-1-HR_r1i1p1f1
   CNRM-ESM2-1:
     N_members: 11
-    active: true
     ensemble_members:
     - CNRM-ESM2-1_r10i1p1f2
     - CNRM-ESM2-1_r11i1p1f2
@@ -164,7 +148,6 @@ models:
     primary_member: CNRM-ESM2-1_r10i1p1f2
   CanESM5:
     N_members: 50
-    active: false
     ensemble_members:
     - CanESM5_r10i1p1f1
     - CanESM5_r10i1p2f1
@@ -219,20 +202,17 @@ models:
     primary_member: CanESM5_r10i1p1f1
   EC-Earth3-AerChem:
     N_members: 2
-    active: false
     ensemble_members:
     - EC-Earth3-AerChem_r1i1p1f1
     - EC-Earth3-AerChem_r4i1p1f1
     primary_member: EC-Earth3-AerChem_r1i1p1f1
   EC-Earth3-CC:
     N_members: 1
-    active: true
     ensemble_members:
     - EC-Earth3-CC_r1i1p1f1
     primary_member: EC-Earth3-CC_r1i1p1f1
   EC-Earth3-Veg:
     N_members: 8
-    active: true
     ensemble_members:
     - EC-Earth3-Veg_r10i1p1f1
     - EC-Earth3-Veg_r12i1p1f1
@@ -245,7 +225,6 @@ models:
     primary_member: EC-Earth3-Veg_r10i1p1f1
   EC-Earth3-Veg-LR:
     N_members: 3
-    active: true
     ensemble_members:
     - EC-Earth3-Veg-LR_r1i1p1f1
     - EC-Earth3-Veg-LR_r2i1p1f1
@@ -253,7 +232,6 @@ models:
     primary_member: EC-Earth3-Veg-LR_r1i1p1f1
   FGOALS-f3-L:
     N_members: 3
-    active: false
     ensemble_members:
     - FGOALS-f3-L_r1i1p1f1
     - FGOALS-f3-L_r2i1p1f1
@@ -261,7 +239,6 @@ models:
     primary_member: FGOALS-f3-L_r1i1p1f1
   FGOALS-g3:
     N_members: 6
-    active: true
     ensemble_members:
     - FGOALS-g3_r1i1p1f1
     - FGOALS-g3_r2i1p1f1
@@ -272,19 +249,16 @@ models:
     primary_member: FGOALS-g3_r1i1p1f1
   GFDL-CM4:
     N_members: 1
-    active: true
     ensemble_members:
     - GFDL-CM4_r1i1p1f1
     primary_member: GFDL-CM4_r1i1p1f1
   GFDL-ESM4:
     N_members: 1
-    active: true
     ensemble_members:
     - GFDL-ESM4_r1i1p1f1
     primary_member: GFDL-ESM4_r1i1p1f1
   HadGEM3-GC31-LL:
     N_members: 5
-    active: true
     ensemble_members:
     - HadGEM3-GC31-LL_r1i1p1f3
     - HadGEM3-GC31-LL_r2i1p1f3
@@ -294,7 +268,6 @@ models:
     primary_member: HadGEM3-GC31-LL_r1i1p1f3
   HadGEM3-GC31-MM:
     N_members: 4
-    active: true
     ensemble_members:
     - HadGEM3-GC31-MM_r1i1p1f3
     - HadGEM3-GC31-MM_r2i1p1f3
@@ -303,19 +276,16 @@ models:
     primary_member: HadGEM3-GC31-MM_r1i1p1f3
   IITM-ESM:
     N_members: 1
-    active: true
     ensemble_members:
     - IITM-ESM_r1i1p1f1
     primary_member: IITM-ESM_r1i1p1f1
   INM-CM4-8:
     N_members: 1
-    active: true
     ensemble_members:
     - INM-CM4-8_r1i1p1f1
     primary_member: INM-CM4-8_r1i1p1f1
   INM-CM5-0:
     N_members: 10
-    active: true
     ensemble_members:
     - INM-CM5-0_r10i1p1f1
     - INM-CM5-0_r1i1p1f1
@@ -330,13 +300,11 @@ models:
     primary_member: INM-CM5-0_r10i1p1f1
   IPSL-CM5A2-INCA:
     N_members: 1
-    active: false
     ensemble_members:
     - IPSL-CM5A2-INCA_r1i1p1f1
     primary_member: IPSL-CM5A2-INCA_r1i1p1f1
   KACE-1-0-G:
     N_members: 3
-    active: true
     ensemble_members:
     - KACE-1-0-G_r1i1p1f1
     - KACE-1-0-G_r2i1p1f1
@@ -344,13 +312,11 @@ models:
     primary_member: KACE-1-0-G_r1i1p1f1
   KIOST-ESM:
     N_members: 1
-    active: true
     ensemble_members:
     - KIOST-ESM_r1i1p1f1
     primary_member: KIOST-ESM_r1i1p1f1
   MIROC-ES2L:
     N_members: 11
-    active: true
     ensemble_members:
     - MIROC-ES2L_day
     - MIROC-ES2L_r10i1p1f2
@@ -366,7 +332,6 @@ models:
     primary_member: MIROC-ES2L_day
   MIROC6:
     N_members: 50
-    active: true
     ensemble_members:
     - MIROC6_r10i1p1f1
     - MIROC6_r11i1p1f1
@@ -421,7 +386,6 @@ models:
     primary_member: MIROC6_r10i1p1f1
   MPI-ESM-1-2-HAM:
     N_members: 3
-    active: false
     ensemble_members:
     - MPI-ESM-1-2-HAM_r1i1p1f1
     - MPI-ESM-1-2-HAM_r2i1p1f1
@@ -429,7 +393,6 @@ models:
     primary_member: MPI-ESM-1-2-HAM_r1i1p1f1
   MPI-ESM1-2-HR:
     N_members: 10
-    active: true
     ensemble_members:
     - MPI-ESM1-2-HR_r10i1p1f1
     - MPI-ESM1-2-HR_r1i1p1f1
@@ -444,7 +407,6 @@ models:
     primary_member: MPI-ESM1-2-HR_r10i1p1f1
   MPI-ESM1-2-LR:
     N_members: 10
-    active: true
     ensemble_members:
     - MPI-ESM1-2-LR_r10i1p1f1
     - MPI-ESM1-2-LR_r1i1p1f1
@@ -459,7 +421,6 @@ models:
     primary_member: MPI-ESM1-2-LR_r10i1p1f1
   MRI-ESM2-0:
     N_members: 6
-    active: false
     ensemble_members:
     - MRI-ESM2-0_r1i1p1f1
     - MRI-ESM2-0_r1i2p1f1
@@ -470,7 +431,6 @@ models:
     primary_member: MRI-ESM2-0_r1i1p1f1
   NorCPM1:
     N_members: 30
-    active: true
     ensemble_members:
     - NorCPM1_r10i1p1f1
     - NorCPM1_r11i1p1f1
@@ -505,7 +465,6 @@ models:
     primary_member: NorCPM1_r10i1p1f1
   NorESM2-LM:
     N_members: 3
-    active: true
     ensemble_members:
     - NorESM2-LM_r1i1p1f1
     - NorESM2-LM_r2i1p1f1
@@ -513,19 +472,16 @@ models:
     primary_member: NorESM2-LM_r1i1p1f1
   SAM0-UNICON:
     N_members: 1
-    active: false
     ensemble_members:
     - SAM0-UNICON_r1i1p1f1
     primary_member: SAM0-UNICON_r1i1p1f1
   TaiESM1:
     N_members: 1
-    active: true
     ensemble_members:
     - TaiESM1_r1i1p1f1
     primary_member: TaiESM1_r1i1p1f1
   UKESM1-0-LL:
     N_members: 17
-    active: true
     ensemble_members:
     - UKESM1-0-LL_r10i1p1f2
     - UKESM1-0-LL_r11i1p1f2

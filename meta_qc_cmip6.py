@@ -22,7 +22,7 @@ from config import DATA_ROOT
 # parse command line
 data_type = sys.argv[1]  # ai or cmip
 if data_type != 'AI' and data_type != 'CMIP6':
-    raise ValueError("Invalid data type; only 'cmip' and 'ai' supported.")
+    raise ValueError("Invalid data type; only 'CMIP6' and 'AI' supported.")
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
@@ -127,7 +127,7 @@ for f in meta_files:
     model_meta['ensemble_members'] = [str(m) for m in ds.member_id.values]
     model_meta['N_members'] = int(len(model_meta['ensemble_members']))
     model_meta['primary_member'] = str(ds.member_id.values[0]) # for now
-    model_meta['active'] = qc['tas_annual_max'][model]['active']  # from qc
+    # model_meta['active'] = qc['tas_annual_max'][model]['active']  # from qc
 
     # close dataset to save memory
     ds.close()
