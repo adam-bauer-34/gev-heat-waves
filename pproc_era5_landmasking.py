@@ -126,7 +126,6 @@ if MAKE_CHECK_PLOTS:
             ds_masked['t2m'].sel(year=2000),
             ds['t2m'].sel(year=2000),
             titles=("Masked t2m", "Original t2m"),
-            val_plotted='t2m',
             save_figs=True,
             filename_args=['t2m_landmask_check_' + VAR + '_' + GRID, 'png', 'figs'])
     

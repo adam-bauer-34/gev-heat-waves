@@ -61,7 +61,7 @@ class CMIP6EnsembleConfig:
     """
 
     # structure: (model_name, model object)
-    cmip6_ensemble_config: Dict[str, CMIP6EnsembleMember] = field(default_factory=dict)
+    ensemble_config: Dict[str, CMIP6EnsembleMember] = field(default_factory=dict)
     
     # structure: (variable_name, model_name, model x variable object)
     variable_config: Dict[str,
@@ -74,8 +74,6 @@ class CMIP6EnsembleConfig:
 
         Parameters
         ----------
-        cls: dummy class variable
-
         ensemble_config_path: str
             the path to the ensemble config file, usually "config/meta.yaml"
 
@@ -94,9 +92,9 @@ class CMIP6EnsembleConfig:
         with open(ensemble_config_path, 'r') as f:
             ensemble_data = yaml.safe_load(f)
 
-            # loop through and fill out the cmip6_ensemble_config dict
+            # loop through and fill out the ensemble_config dict
             for model_name, model_info in ensemble_data['models'].items():
-                config.cmip6_ensemble_config[model_name] = CMIP6EnsembleMember(**model_info)
+                config.ensemble_config[model_name] = CMIP6EnsembleMember(**model_info)
 
         # load in variable information
         with open(variable_config_path, 'r') as f:
@@ -146,14 +144,14 @@ class CMIP6EnsembleConfig:
                     continue
 
             # if model doesn't exist in the current config, raise warning / skip
-            if model_name not in self.cmip6_ensemble_config:
+            if model_name not in self.ensemble_config:
                 if verbose:
                     warnings.warn("Model {} does not exist in current config. Skipping.".format(model_name))
                 else:
                     continue
                 
             # with the checks passed, we can yield an ensemble member class
-            ens_member = self.cmip6_ensemble_config[model_name]
+            ens_member = self.ensemble_config[model_name]
         
             yield ModelStagedForAnalysis(
                 name=model_name,
@@ -230,7 +228,7 @@ class CMIP6EnsembleConfig:
         
         # otherwise pull the ensemble member and the ModelVariable and make the 
         # ModelStagedForAnalysis class
-        ens_member = self.cmip6_ensemble_config[model]
+        ens_member = self.ensemble_config[model]
         modvar = self.variable_config[variable][model]
 
         return ModelStagedForAnalysis(

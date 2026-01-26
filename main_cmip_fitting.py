@@ -4,7 +4,7 @@ Adam Michael Bauer
 UChicago
 Jan 2026
 
-To run: main_gev_fit.py STAT
+To run: main_cmip_fitting.py STAT
 """
 
 import os

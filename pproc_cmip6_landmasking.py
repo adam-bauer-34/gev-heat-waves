@@ -8,12 +8,7 @@ Adam Michael Bauer
 UChicago
 1.12.2026
 
-To run: pproc_cmip6_landmasking.py MEM MAKE_CHECK_PLOTS
-
-NOTE: MEM is the ensemble member string WITHOUT the f piece, e.g., it is
-'r1i1p1' or some such. The code will try f=1, 2, 3, 4 in that order. I did
-this mainly because i only care about f=1 (the default) or whatever the default
-is for that model (sometimes f=2 or f=3 depending).
+To run: pproc_cmip6_landmasking.py MAKE_CHECK_PLOTS
 """
 
 import sys
@@ -25,11 +20,15 @@ import numpy as np
 from config import DATA_ROOT
 from src.check_plots import plot_side_by_side
 from src.preprocessing import make_regridded_land_mask
+from src.cmip_dataclass import CMIP6EnsembleConfig
 
 # import command line stuff
-MEM, MAKE_CHECK_PLOTS = sys.argv[1:]
-MAKE_CHECK_PLOTS = bool(int(MAKE_CHECK_PLOTS))
+MAKE_CHECK_PLOTS = bool(int(sys.argv[1]))
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
+
+# make CMIP6 model config class (only used for plotting here)
+CMIPConfig = CMIP6EnsembleConfig.from_yaml("config.meta.yaml", 
+                                            "config/qc.yaml")
 
 # set mask threshold
 MASK_THRES = 0.5  # "standard", according to Rahul Singh :)
@@ -80,36 +79,29 @@ for var in vars:
         ds = xr.open_dataset(f)
         ds_mean = xr.open_dataset(f_mean)
 
-        # select member
-        candidate_fs = (1, 2, 3, 4)
-        for c in candidate_fs:
-            MEM_try = MEM + 'f{}'.format(c)
-
-            try:
-                ds = ds.sel(member_id=str(model_name) + '_' + MEM_try)
-                ds_mean = ds_mean.sel(member_id=str(model_name) + '_' + MEM_try)
-                break  # exit loop if successful
-
-            except KeyError:
-                if c == 4:
-                    raise KeyError("⚠️ No matching member_id found for model ", model_name,
-                                   " with MEMs ", MEM, "fX for f = (1, 2, 3, 4).")
-                else:
-                    continue
-
-        # compute anomalies relative to the annual mean
-        # if max, do data - mean, if min, do mean - data
-        if var == 'tas_annual_max':
-            da_anom = ds['tas'] - ds_mean['tas']
-        else:
-            da_anom = ds_mean['tas'] - ds['tas']
+        # 1. compute anomalies relative to annual mean temperature
+        da_anom_annmean = ds['tas'] - ds_mean['tas']
 
         # assign the anomaly data array to the dataset
-        ds = ds.assign({'tas_anom': da_anom})
+        ds = ds.assign({'t2m_anom_annmean': da_anom_annmean})
+
+        # 2. compute anomalies relative to *trend* in annual mean temperature
+        # do linear regression on annual mean data
+        annual_mean_trend = ds_mean.polyfit(dim='year', deg=1, skipna=True)
+
+        # make time series of temperature values given by trendline 
+        t2m_annual_mean_trend = annual_mean_trend.t2m_polyfit_coefficients.sel(degree=0)\
+            + ds_mean.year * annual_mean_trend.t2m_polyfit_coefficients.sel(degree=1)
+
+        # subtract trendline temperatures from annual max / min to get anomalies relative
+        # to the trend
+        da_anom_trend = ds['tas'] - t2m_annual_mean_trend
+
+        # assign to datasets
+        ds = ds.assign({'t2m_anom_trend': da_anom_trend})
 
         # mask out ocean / non-land
         ds_masked = ds.where(land_mask['lsm'].data[0] > MASK_THRES, np.nan)
-        ds_masked.attrs['selected_member'] = MEM_try  # store ensemble member
 
         # save to netCDF
         ds_masked.to_netcdf(
@@ -124,17 +116,22 @@ for var in vars:
         ds.close()
         ds_mean.close()
         ds_masked.close()
-        da_anom.close()
+        da_anom_annmean.close()
+        da_anom_trend.close()
 
         # make check plots if desired
         if MAKE_CHECK_PLOTS:
+            print("-"*width)
+            print("📈 Making check plot...")
+
             plot_side_by_side(
-                ds_masked['tas_anom'].sel(year=2000),
-                ds['tas_anom'].sel(year=2000),
+                ds_masked['tas'].sel(year=2000,
+                                     member_id=CMIPConfig.ensemble_config[model_name].primary_member),
+                ds['tas'].sel(year=2000,
+                              member_id=CMIPConfig.ensemble_config[model_name].primary_member),
                 titles=("Masked tas", "Original tas"),
-                val_plotted='tas',
                 save_figs=True,
-                filename_args=['tas_landmask_check_' + var + '_' + MEM + '_' + model_name, 'png', 'figs']
+                filename_args=['tas_landmask_check_' + var + '_' + model_name, 'png', 'figs']
                 )
             print("📊 Check plot for ", model_name, " saved.")
 
