@@ -4,7 +4,7 @@ Adam Michael Bauer
 UChicago
 Jan 2026
 
-To run: main_gev_fit.py GRID STAT
+To run: main_gev_fit.py STAT
 """
 
 import os
@@ -35,38 +35,54 @@ for var in vars:
 
     # make all landonly file names
     fnames = [f for f in data_path.glob("*_landonly.nc")]
+    f = fnames[0]
 
-    # open dataset
-    print('-'*width)
-    print("🪏 Importing land-masked data...")
-    # dss = [xr.open_dataset(DATA_ROOT / 'ERA5' /'landonly' / fname) for fname in fnames]
+    print(
+        data_path / 'gev' / (f.stem + "_gev_{}".format(STAT) + f.suffix)
+    )
 
-    # carry out GEV fitting for each dataset
-    if STAT == 'stat':
+    for f in fnames:
+        fparts = f.stem.split('_')
+        model_name = '_'.join(fparts[2:3])
+
         print('-'*width)
-        print("🧮 Doing stationary GEV fits...")
-        #dss_with_fit = [ds_mle_fit(ds, var_name='t2m') for ds in dss]
-        #dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom') for ds in dss_with_fit]
+        print("🪛 Working on ", model_name)
+        ds = xr.open_dataset(f)  # import land masked data
 
-    elif STAT == 'nonstat':
+        # carry out GEV fits
         print('-'*width)
-        print("🧮 Doing nonstationary GEV fits...")
-        #dss_with_fit = [ds_mle_fit(ds, var_name='t2m',
-        #                        fit_dim='year', non_stat=True) for ds in dss]
-        #dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom',
-        #                                fit_dim='year', non_stat=True) for ds in dss_with_fit]
+        print("🧮 Doing GEV fitting...")
 
-    else:
-        raise ValueError("Invalid entry for command line argument `STAT` (supports 'stat' or 'nonstat').")
-    
-    print('-'*width)
-    print("✅ GEV fitting complete.")
+        if STAT == 'stat':
+            print("🥩 Doing GEV fits on raw temperature data...")
+            ds_raw_fit = ds_mle_fit(ds, var_name='tas', fit_dim='year',
+                                    non_stat=False)
+            print("⚡️ Doing GEV fits on temperature anomalies...")
+            ds_both_fit = ds_mle_fit(ds_raw_fit, var_name='tas_anom', fit_dim='year',
+                                     non_stat=False)
 
-    print('-'*width)
-    print("✍️ Saving datasets...")
-    # save datasets
-    #for VAR, ds_masked, fname in zip(vars, dss_with_fit_on_both, fnames):
-    #    ds_masked.to_netcdf(DATA_ROOT / 'CMIP6' / VAR / 'gev' / (fname[:-3] + '_gev_' + STAT + '.nc'))
+        if STAT == 'nonstat':
+            print("🥩 Doing GEV fits on raw temperature data...")
+            ds_raw_fit = ds_mle_fit(ds, var_name='tas', fit_dim='year',
+                                    non_stat=True)
+            print("⚡️ Doing GEV fits on temperature anomalies...")
+            ds_both_fit = ds_mle_fit(ds_raw_fit, var_name='tas_anom', fit_dim='year',
+                                     non_stat=True)
+
+        else:
+            raise ValueError("⚠️ Invalid entry for command line argument `STAT` (supports 'stat' or 'nonstat').")
     
-    print('-'*width)
-    print("✅ Datasets saved to f{DATA_ROOT}/ERA5/landonly/")
+        print("✅ GEV fitting complete.")
+
+        # save datasets
+        ds_both_fit.to_netcdf(
+            f.with_name('gev' / 
+                f.stem + "_gev_{}".format(STAT) + f.suffix
+            )
+        )
+
+        print("✍️ Dataset successfully saved.")
+
+print('='*width)
+print("🥳 All done! 🥳")
+print('='*width)

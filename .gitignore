@@ -216,3 +216,6 @@ mma/
 
 # ignore data paths (different on each machine) but keep config/ folder
 config/paths.yaml
+
+# ignore batch files
+*.sbatch

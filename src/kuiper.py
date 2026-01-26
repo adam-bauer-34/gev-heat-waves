@@ -9,7 +9,7 @@ import numpy as np
 import xarray as xr
 
 from scipy.stats import genextreme
-from .mle import _mle_fit
+from src.mle import _mle_fit
 from astropy.stats import kuiper
 
 def compute_kuiper_stats(ds, var_name='t2m', print_summary=False):
