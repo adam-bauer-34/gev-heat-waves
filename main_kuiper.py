@@ -24,8 +24,8 @@ DO_BOOTSTRAPPING = bool(int(DO_BOOTSTRAPPING))
 print("Importing land-masked data...")
 # define variables and open datasets
 vars = ['t2m_annual_max', 't2m_annual_min']
-fnames = ['era5_' + VAR + '_' + GRID + '_landonly_gev_' + STAT + '.nc' for VAR in vars]
-dss = [xr.open_dataset(DATA_ROOT / 'ERA5' /'landonly' / fname) for fname in fnames]
+fnames = ['era5_' + var + '_' + GRID + '_landonly_gev_' + STAT + '.nc' for var in vars]
+dss = [xr.open_dataset(DATA_ROOT / 'ERA5' /'gev' / fname) for fname in fnames]
 
 print("Computing kuiper statistics...")
 # carry out GEV fitting for each dataset
