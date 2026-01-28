@@ -17,6 +17,7 @@ dependencies:
   - nb_conda_kernels
   - ipykernel
   - astropy
+  - pytz
   - pip
   - pip:
       - ~/personal_python_modules/ambpy

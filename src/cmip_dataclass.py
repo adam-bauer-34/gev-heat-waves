@@ -7,6 +7,8 @@ ingests two .yaml files created after running `meta_qc_cmip6.py`.
 Adam Michael Bauer
 UChicago
 1.26.2026
+
+Last edited: 1/28/2026, 1:19 PM CST
 """
 
 from dataclasses import dataclass, field
@@ -302,7 +304,6 @@ if __name__ == "__main__":
         # model is None
         print("{} is NOT active for {}".format(test_model, variable))
 
-    
     print("\n" + "="*60 + "\n")
     
     # === Get count of active models ===

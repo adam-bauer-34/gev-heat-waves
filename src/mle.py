@@ -7,6 +7,8 @@ GEV to
 - function to fit GEV at some grid point
 - negative log-likelihood of GEV distribution
 - GEV PDF
+
+Last edited: 1/28/2026, 3:41 PM CST
 """
 
 import warnings
@@ -15,7 +17,7 @@ import numpy as np
 import xarray as xr
 
 # ignore divide by zero / overflow warnings that pop up during
-# scipy.optimize.minimize calls
+# scipy.optimize.minimize calls and don't really impact performance
 warnings.simplefilter('ignore', RuntimeWarning)
 
 from scipy.optimize import minimize
@@ -125,6 +127,12 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     """Fit a potentiallly nonstationary GEV distribution to data via MLE.
     """
 
+    # on first call, give the function these two attributes to track
+    # success and failure of MLE across gridpoints.
+    if not hasattr(_mle_fit, 'success_count'):
+        _mle_fit.success_count = 0
+        _mle_fit.fail_count = 0
+
     # only take finite values
     data = data[np.isfinite(data)]
 
@@ -182,18 +190,34 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
 
     # if the fit is successful, return parameters, else return nans
     if fit.success:
-        #print("MLE fit successful.")
+        # print("MLE fit successful.")
+        _mle_fit.success_count += 1
+        total = _mle_fit.success_count + _mle_fit.fail_count
+        success_rate = _mle_fit.success_count / total
+        print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
         if non_stat:
             return np.array(fit.x)  # return all 6 parameters
         else:
             return np.array([fit.x[0], fit.x[2], fit.x[4]])  # loc_0, scale_0, shape_0
     
     else:
-        print("WARNING: MLE fit failed: {}".format(fit.message))
+        #print("WARNING: MLE fit failed: {}".format(fit.message))
+        _mle_fit.fail_count += 1
+        total = _mle_fit.success_count + _mle_fit.fail_count
+        success_rate = _mle_fit.success_count / total
+        print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
         if non_stat:
             return np.array([np.nan] * 6)  # return nans for failed fit
         else:
             return np.array([np.nan] * 3)  # return nans for failed fit
+
+
+def reset_mle_stats():
+    """Reset MLE function stats.
+    """
+    _mle_fit.success_count = 0
+    _mle_fit.fail_count = 0 
+    print("\nMLE stats reset.")
 
 
 def _negative_log_likelihood(params, data, non_stat=False):

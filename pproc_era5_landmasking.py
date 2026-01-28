@@ -8,6 +8,8 @@ UChicago
 11.10.2025
 
 To run: pproc_era5_landmasking.py GRID MAKE_CHECK_PLOTS
+
+Last edited: 1/28/2026, 12:30 PM CST
 """
 
 import sys
