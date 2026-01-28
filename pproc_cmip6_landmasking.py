@@ -131,7 +131,7 @@ for var in vars:
                               member_id=CMIPConfig.ensemble_config[model_name].primary_member),
                 titles=("Masked tas", "Original tas"),
                 save_figs=True,
-                filename_args=['tas_landmask_check_' + var + '_' + model_name, 'png', 'figs']
+                filename_args=['tas_landmask_check_' + var + '_' + model_name, 'png', 'figs/checks']
                 )
             print("📊 Check plot for ", model_name, " saved.")
 
