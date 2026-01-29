@@ -126,7 +126,7 @@ for f in meta_files:
     # extract relevant info
     model_meta['ensemble_members'] = [str(m) for m in ds.member_id.values]
     model_meta['N_members'] = int(len(model_meta['ensemble_members']))
-    model_meta['primary_member'] = str(ds.member_id.values[0]) # for now
+    model_meta['primary_member'] = str(ds.member_id.values[0])  # for now
     # model_meta['active'] = qc['tas_annual_max'][model]['active']  # from qc
 
     # close dataset to save memory

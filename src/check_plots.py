@@ -9,7 +9,7 @@ import cartopy.feature as cfeature
 from ambpy.plotutils import make_figure_filename
 # plt.style.use('ambpy')
 
-def plot_side_by_side(data, data2, titles=("Dataset 1", "Dataset 2"), val_plotted='Value',
+def plot_side_by_side(data, data2, titles=("Dataset 1", "Dataset 2"),
                       save_figs=False,
                       filename_args=['check_plot', 'png', 'figs']):
     """

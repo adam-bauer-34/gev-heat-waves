@@ -8,6 +8,8 @@ UChicago
 11.10.2025
 
 To run: pproc_era5_landmasking.py GRID MAKE_CHECK_PLOTS
+
+Last edited: 1/28/2026, 12:30 PM CST
 """
 
 import sys
@@ -117,18 +119,16 @@ if MAKE_CHECK_PLOTS:
         land_mask_regridded['lsm'],
         land_mask['lsm'],
         titles=("Regridded Land/Sea Mask", "Original Land/Sea Mask"),
-        val_plotted='Land/Sea Mask',
         save_figs=True,
-        filename_args=['landmask_regrid_check_' + GRID, 'png', 'figs'])
+        filename_args=['era5_landmask_regrid_check_' + GRID, 'png', 'figs/checks'])
     
     for VAR, ds_masked, ds in zip(vars, ds_maskeds, dss):
         plot_side_by_side(
             ds_masked['t2m'].sel(year=2000),
             ds['t2m'].sel(year=2000),
             titles=("Masked t2m", "Original t2m"),
-            val_plotted='t2m',
             save_figs=True,
-            filename_args=['t2m_landmask_check_' + VAR + '_' + GRID, 'png', 'figs'])
+            filename_args=['era5_t2m_landmask_check_' + VAR + '_' + GRID, 'png', 'figs/checks'])
     
     print('-'*width)
     print("✅ Check plots are complete.")

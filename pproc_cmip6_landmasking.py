@@ -8,12 +8,9 @@ Adam Michael Bauer
 UChicago
 1.12.2026
 
-To run: pproc_cmip6_landmasking.py MEM MAKE_CHECK_PLOTS
+To run: pproc_cmip6_landmasking.py MAKE_CHECK_PLOTS
 
-NOTE: MEM is the ensemble member string WITHOUT the f piece, e.g., it is
-'r1i1p1' or some such. The code will try f=1, 2, 3, 4 in that order. I did
-this mainly because i only care about f=1 (the default) or whatever the default
-is for that model (sometimes f=2 or f=3 depending).
+Last edited: 1/28/2026, 12:30 PM CST
 """
 
 import sys
@@ -25,17 +22,22 @@ import numpy as np
 from config import DATA_ROOT
 from src.check_plots import plot_side_by_side
 from src.preprocessing import make_regridded_land_mask
+from src.cmip_dataclass import CMIP6EnsembleConfig
+from src.utils import extract_model_name
 
 # import command line stuff
-MEM, MAKE_CHECK_PLOTS = sys.argv[1:]
-MAKE_CHECK_PLOTS = bool(int(MAKE_CHECK_PLOTS))
+MAKE_CHECK_PLOTS = bool(int(sys.argv[1]))
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
+
+# make CMIP6 model config class (only used for plotting here)
+CMIPConfig = CMIP6EnsembleConfig.from_yaml("config/meta.yaml", 
+                                            "config/qc.yaml")
 
 # set mask threshold
 MASK_THRES = 0.5  # "standard", according to Rahul Singh :)
 
 # make annual mean data path for reference
-data_path_mean = DATA_ROOT / 'CMIP6' / 'tas_annual_mean'
+data_path_mean = DATA_ROOT / 'CMIP6' / 'tas_annual_mean' / 'raw'
 
 # define variables
 vars = ['tas_annual_max', 'tas_annual_min']
@@ -45,7 +47,7 @@ try:
     land_mask = xr.open_dataset(DATA_ROOT / 'ERA5' / 'era5_land_mask_1deg.nc')
 
 except FileNotFoundError:
-    print("🧑‍🍳 No regridded land mask found, making a new one...")
+    print("\n🧑‍🍳 No regridded land mask found, making a new one...")
     make_regridded_land_mask(GRID='1deg')
     land_mask = xr.open_dataset(DATA_ROOT / 'ERA5' / 'era5_land_mask_1deg.nc')
 
@@ -55,86 +57,103 @@ for var in vars:
     print('='*width)
 
     # make data path
-    data_path = DATA_ROOT / 'CMIP6' / var
+    data_path = DATA_ROOT / 'CMIP6' / var / 'raw'
 
     # make list of all files
-    files = [f for f in data_path.glob('*.nc')]
-
-    # only keep non-landonly files
-    fnames = [
-        f
-        for f in files
-        if not f.stem.endswith("_landonly")
-    ]
+    fnames = [f for f in data_path.glob('*.nc')]
 
     # make list of all annual mean files (never land masked)
     fnames_mean = [f for f in data_path_mean.glob('*.nc')]
 
+    # extract model names
+    var_models = {extract_model_name(f) for f in fnames}
+    mean_models = {extract_model_name(f) for f in fnames_mean}
+
+    # check if all models that are available for this variable have corresponding
+    # annual mean data.
+    if var_models != mean_models:
+        missing_in_mean = var_models - mean_models
+        missing_in_var = mean_models - var_models
+
+        print("⚠️ Not all CMIP output have complete data records for analysis.")
+        if missing_in_mean:
+            print(f"Models that have {var} data but not annual mean data: {missing_in_mean}.")
+        if missing_in_var:
+            print(f"Models that have annual mean data but not {var} data: {missing_in_var}.")
+        
+        error_message = ("CMIP ensemble data is incomplete."
+                         "Either archive models that are missing data,"
+                         " or reprocess model output to complete records.")
+        raise ValueError(error_message)
+
+    # Sort both lists by model name to ensure they match up correctly
+    fnames = sorted(fnames, key=extract_model_name)
+    fnames_mean = sorted(fnames_mean, key=extract_model_name)
+
     # open datasets, regrid, and save
     for f, f_mean in zip(fnames, fnames_mean):
         fparts = f.stem.split('_')
-        model_name = '_'.join(fparts[2:3])
+        model_name = '_'.join(fparts[2:3])  # hard coded, would have to change if we had diff data
 
         print('-'*width)
         print("🪛 Working on ", model_name)
         ds = xr.open_dataset(f)
         ds_mean = xr.open_dataset(f_mean)
 
-        # select member
-        candidate_fs = (1, 2, 3, 4)
-        for c in candidate_fs:
-            MEM_try = MEM + 'f{}'.format(c)
-
-            try:
-                ds = ds.sel(member_id=str(model_name) + '_' + MEM_try)
-                ds_mean = ds_mean.sel(member_id=str(model_name) + '_' + MEM_try)
-                break  # exit loop if successful
-
-            except KeyError:
-                if c == 4:
-                    raise KeyError("⚠️ No matching member_id found for model ", model_name,
-                                   " with MEMs ", MEM, "fX for f = (1, 2, 3, 4).")
-                else:
-                    continue
-
-        # compute anomalies relative to the annual mean
-        # if max, do data - mean, if min, do mean - data
-        if var == 'tas_annual_max':
-            da_anom = ds['tas'] - ds_mean['tas']
-        else:
-            da_anom = ds_mean['tas'] - ds['tas']
+        # 1. compute anomalies relative to annual mean temperature
+        da_anom_annmean = ds['tas'] - ds_mean['tas']
 
         # assign the anomaly data array to the dataset
-        ds = ds.assign({'tas_anom': da_anom})
+        ds = ds.assign({'t2m_anom_annmean': da_anom_annmean})
+
+        # 2. compute anomalies relative to *trend* in annual mean temperature
+        # do linear regression on annual mean data
+        annual_mean_trend = ds_mean.polyfit(dim='year', deg=1, skipna=True)
+
+        # make time series of temperature values given by trendline 
+        t2m_annual_mean_trend = annual_mean_trend.tas_polyfit_coefficients.sel(degree=0)\
+            + ds_mean.year * annual_mean_trend.tas_polyfit_coefficients.sel(degree=1)
+
+        # subtract trendline temperatures from annual max / min to get anomalies relative
+        # to the trend
+        da_anom_trend = ds['tas'] - t2m_annual_mean_trend
+
+        # assign to datasets
+        ds = ds.assign({'t2m_anom_trend': da_anom_trend})
 
         # mask out ocean / non-land
         ds_masked = ds.where(land_mask['lsm'].data[0] > MASK_THRES, np.nan)
-        ds_masked.attrs['selected_member'] = MEM_try  # store ensemble member
 
         # save to netCDF
-        ds_masked.to_netcdf(
-            f.with_name(
-                f.stem + "_landonly" + f.suffix
-            )
-        )
+        land_dir = f.parent.parent / 'landonly'  # get land only directory path
+        land_name = f.with_name(
+            f.stem + "_landonly" + f.suffix
+        ).name  # make name of file with _landonly appended on end
+        ds_masked.to_netcdf(land_dir / land_name)  # save to netCDF file
+
         print('-'*width)
-        print("✅ ", model_name, " land masking done and saved successfully.")
+        print("✅ ", model_name, " land masking done and saved successfully to:\n{}".format(land_dir / land_name))
 
         # close datasets to save memory
         ds.close()
         ds_mean.close()
         ds_masked.close()
-        da_anom.close()
+        da_anom_annmean.close()
+        da_anom_trend.close()
 
         # make check plots if desired
         if MAKE_CHECK_PLOTS:
+            print("-"*width)
+            print("📈 Making check plot...")
+
             plot_side_by_side(
-                ds_masked['tas_anom'].sel(year=2000),
-                ds['tas_anom'].sel(year=2000),
+                ds_masked['tas'].sel(year=2000,
+                                     member_id=CMIPConfig.ensemble_config[model_name].primary_member),
+                ds['tas'].sel(year=2000,
+                              member_id=CMIPConfig.ensemble_config[model_name].primary_member),
                 titles=("Masked tas", "Original tas"),
-                val_plotted='tas',
                 save_figs=True,
-                filename_args=['tas_landmask_check_' + var + '_' + MEM + '_' + model_name, 'png', 'figs']
+                filename_args=['tas_landmask_check_' + var + '_' + model_name, 'png', 'figs/checks']
                 )
             print("📊 Check plot for ", model_name, " saved.")
 

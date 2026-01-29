@@ -8,13 +8,13 @@ To run: main_gev_fit.py GRID STAT [TMIN]
 """
 
 import sys
-from pathlib import Path
 import shutil
 
 import xarray as xr
 
 from config import DATA_ROOT
 from src.mle import ds_mle_fit
+from pathlib import Path
 
 # import command line arguments
 GRID = sys.argv[1]

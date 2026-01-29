@@ -100,3 +100,10 @@ def yaml_safe(obj):
         return obj.item()
     else:
         return obj
+    
+# Extract cmip6 model names from filenames
+def extract_model_name(filepath):
+    """Extract cmip6 model name from filepath.
+    """
+    fparts = filepath.stem.split('_')
+    return '_'.join(fparts[2:3])
