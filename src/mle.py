@@ -8,7 +8,7 @@ GEV to
 - negative log-likelihood of GEV distribution
 - GEV PDF
 
-Last edited: 1/28/2026, 3:41 PM CST
+Last edited: 1/29/2026, 10:22 AM CST
 """
 
 import warnings
@@ -22,7 +22,7 @@ warnings.simplefilter('ignore', RuntimeWarning)
 
 from scipy.optimize import minimize
 
-def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
+def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, all_mems=False, parallel=True):
     """Fit (potentially nonstationary) GEV distribution to each (lat, lon) pair
     of an xarray Dataset via maximum likelihood estimation.
 
@@ -36,9 +36,12 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
 
     fit_dim: str
         the dimension over which to fit the GEV distribution (e.g., 'year')
-    
+
     non_stat: bool
         whether to fit a nonstationary GEV (True) or stationary GEV (False)
+
+    all_mems: bool
+        fit to all ensemble members? (only applicable for one CMIP model)
 
     parallel: bool
         whether to use dask parallelization for the fitting
@@ -52,6 +55,11 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
     # subselect variable to do the fitting over
     da = ds[var_name]
 
+    if non_stat:
+        N_param_dims = 6
+    else:
+        N_param_dims = 3
+
     # carry out either parallelized or non-parallelized fit
     if parallel:
         gev_params = xr.apply_ufunc(
@@ -63,6 +71,9 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             vectorize=True,
             dask='parallelized',
             output_dtypes=[float],
+            dask_gufunc_kwargs={
+                'output_sizes': {'gev_params' : N_param_dims}
+            }
         )
 
     else:
@@ -74,7 +85,7 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             output_core_dims=[['gev_params']]
         )
 
-    if non_stat:
+    if non_stat and not all_mems:
         # assign shape, loc, and scale parameters to their (lat, lon) coords
         if var_name == 't2m' or var_name == 'tas':
             # assign shape, loc, and scale parameters to their (lat, lon) coords
@@ -103,7 +114,7 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             ds = ds.assign(shape_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 4]))
             ds = ds.assign(shape_t_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 5]))
 
-    else:
+    elif not non_stat and not all_mems:
         if var_name == 't2m' or var_name == 'tas':
             ds = ds.assign(loc_raw = (('lat', 'lon'), gev_params.data[:, :, 0]))
             ds = ds.assign(scale_raw = (('lat', 'lon'), gev_params.data[:, :, 1]))
@@ -119,6 +130,54 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, parallel=True):
             ds = ds.assign(scale_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 1]))
             ds = ds.assign(shape_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 2]))
 
+    # since we fit over all ensemble members, we need another : compared to the above
+    # because MLE fitting output has an additional dimension
+    # (mem, lat, lon, param) instead of (lat, lon, param)
+    elif non_stat and all_mems:
+        # assign shape, loc, and scale parameters to their (lat, lon) coords
+        if var_name == 't2m' or var_name == 'tas':
+            # assign shape, loc, and scale parameters to their (lat, lon) coords
+            ds = ds.assign(loc_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
+            ds = ds.assign(loc_t_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
+            ds = ds.assign(scale_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
+            ds = ds.assign(scale_t_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 3]))
+            ds = ds.assign(shape_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 4]))
+            ds = ds.assign(shape_t_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 5]))
+
+        elif var_name == 't2m_anom_annmean':
+            # assign shape, loc, and scale parameters to their (lat, lon) coords
+            ds = ds.assign(loc_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
+            ds = ds.assign(loc_t_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
+            ds = ds.assign(scale_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
+            ds = ds.assign(scale_t_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 3]))
+            ds = ds.assign(shape_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 4]))
+            ds = ds.assign(shape_t_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 5]))
+
+        elif var_name == 't2m_anom_trend':
+            # assign shape, loc, and scale parameters to their (lat, lon) coords
+            ds = ds.assign(loc_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
+            ds = ds.assign(loc_t_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
+            ds = ds.assign(scale_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
+            ds = ds.assign(scale_t_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 3]))
+            ds = ds.assign(shape_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 4]))
+            ds = ds.assign(shape_t_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 5]))
+
+    elif not non_stat and all_mems:
+        if var_name == 't2m' or var_name == 'tas':
+            ds = ds.assign(loc_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
+            ds = ds.assign(scale_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
+            ds = ds.assign(shape_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
+
+        elif var_name == 't2m_anom_annmean':
+            ds = ds.assign(loc_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
+            ds = ds.assign(scale_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
+            ds = ds.assign(shape_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
+
+        elif var_name == 't2m_anom_trend':
+            ds = ds.assign(loc_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
+            ds = ds.assign(scale_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
+            ds = ds.assign(shape_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
+
     # return the amended dataset
     return ds
 
@@ -128,7 +187,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     """
 
     # on first call, give the function these two attributes to track
-    # success and failure of MLE across gridpoints.
+    # success and failure of MLE across grid points.
     if not hasattr(_mle_fit, 'success_count'):
         _mle_fit.success_count = 0
         _mle_fit.fail_count = 0
@@ -212,12 +271,13 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
             return np.array([np.nan] * 3)  # return nans for failed fit
 
 
-def reset_mle_stats():
+def reset_mle_stats(silent=True):
     """Reset MLE function stats.
     """
     _mle_fit.success_count = 0
     _mle_fit.fail_count = 0 
-    print("\nMLE stats reset.")
+    if not silent:
+        print("\nMLE stats reset.")
 
 
 def _negative_log_likelihood(params, data, non_stat=False):
