@@ -8,7 +8,7 @@ GEV to
 - negative log-likelihood of GEV distribution
 - GEV PDF
 
-Last edited: 1/29/2026, 10:22 AM CST
+Last edited: 1/29/2026, 6:41 PM CST
 """
 
 import warnings
