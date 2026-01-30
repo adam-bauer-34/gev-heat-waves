@@ -1,7 +1,0 @@
-Job ID: 44468086
-Job name: _interactive
-N tasks: 
-N cores: 4
-N threads per code: 
-Minimum memory required per CPU: 
-Requested memory per GPU: 

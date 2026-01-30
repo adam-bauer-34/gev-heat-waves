@@ -253,7 +253,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
         _mle_fit.success_count += 1
         total = _mle_fit.success_count + _mle_fit.fail_count
         success_rate = _mle_fit.success_count / total
-        print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
+        # print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
         if non_stat:
             return np.array(fit.x)  # return all 6 parameters
         else:
@@ -264,7 +264,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
         _mle_fit.fail_count += 1
         total = _mle_fit.success_count + _mle_fit.fail_count
         success_rate = _mle_fit.success_count / total
-        print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
+        # print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
         if non_stat:
             return np.array([np.nan] * 6)  # return nans for failed fit
         else:
