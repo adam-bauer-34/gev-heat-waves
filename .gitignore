@@ -214,6 +214,9 @@ dep/
 old/
 mma/
 
+# ignore SLURM logs
+logs/
+
 # ignore data paths (different on each machine) but keep config/ folder
 config/paths.yaml
 

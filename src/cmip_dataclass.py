@@ -69,7 +69,6 @@ class CMIP6EnsembleConfig:
     variable_config: Dict[str,
                           Dict[str, ModelVariable]] = field(default_factory=dict)
 
-    
     @classmethod
     def from_yaml(cls, ensemble_config_path: str, variable_config_path: str) -> 'CMIP6EnsembleConfig':
         """Create a CMIP6EnsembleConfig from a pair of .yaml files.
