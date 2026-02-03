@@ -280,6 +280,13 @@ def reset_mle_stats(silent=True):
         print("\nMLE stats reset.")
 
 
+def get_mle_success_rate():
+    """Report the MLE success rate.
+    """
+    total = _mle_fit.success_count + _mle_fit.fail_count
+    return _mle_fit.success_count / total  # success rate of MLE algorithm
+
+
 def _negative_log_likelihood(params, data, non_stat=False):
     if non_stat:
         loc_0, loc_1, scale_0, scale_1, shape_0, shape_1 = params

@@ -20,7 +20,7 @@ import xarray as xr
 from mpi4py import MPI
 
 from config import DATA_ROOT
-from src.mle import ds_mle_fit, reset_mle_stats
+from src.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
 from src.cmip_dataclass import CMIP6EnsembleConfig
 from src.utils import extract_model_name
 
@@ -93,9 +93,14 @@ def process_single_fit(var, m, modelname_filepath_matcher, STAT, fit_type, width
         else:
             raise ValueError(f"Unknown fit_type: {fit_type}")
         
-        reset_mle_stats()
-        
         print(f"[Rank {rank}] ✅ {fit_type} fit complete.")
+
+        # get MLE success rate; reset immediately after
+        success_rate = get_mle_success_rate()        
+        reset_mle_stats()
+
+        # store MLE success rate as a dataset attribute
+        ds_fit.attrs['MLE_success_rate'] = success_rate
         
         # Save dataset
         gev_dir = fpath.parent.parent / 'gev'
