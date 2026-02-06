@@ -8,7 +8,7 @@ GEV to
 - negative log-likelihood of GEV distribution
 - GEV PDF
 
-Last edited: 2/6/2026, 10:44 AM CST
+Last edited: 2/6/2026, 1:24 PM CST
 """
 
 import warnings
@@ -224,19 +224,23 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     # stationary sets the trend in parameters to zero, and keeps the scale parameter positive
     if non_stat:
         cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2] + x[3]},  # scale_0 + scale_1 * time >= 0
-                {'type': 'ineq',
-                 'fun': lambda x: x[2]})  # scale_0 >= 0
+                 'fun': lambda x: x[2] + x[3]}  # scale_0 + scale_1 * time >= 0
+                 )
 
     else:
-        cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2]},  # scale_0 >= 0
-                {'type': 'eq',
+        cons = ({'type': 'eq',
                  'fun': lambda x: x[1]},  # loc_1 = 0 (no trend)
                 {'type': 'eq',
                  'fun': lambda x: x[3]},  # scale_1 = 0 (no trend)
                 {'type': 'eq',
                  'fun': lambda x: x[5]})  # shape_1 = 0 (no trend)
+
+    bounds = ((None, None),
+            (None, None),
+            (0.0, None),
+            (None, None),
+            (-1, 1),  # bar{xi} can't be too big or MLE is unstable
+            (-1, 1))  # xi' can't be too big for same reason
         
     # do MLE fit
     fit = minimize(_negative_log_likelihood,
@@ -244,6 +248,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
                     args=(data, non_stat),
                     method='SLSQP',  # SLSQP to allow for constraints
                     constraints=cons,
+                    bounds=bounds,
                     # jac=_grad_negative_log_likelihood
                     )
 
@@ -720,7 +725,7 @@ if __name__ == '__main__':
 
     # simple test case
     np.random.seed(42)
-    sample_sizes = [10**i for i in range(2, 3)]
+    sample_sizes = [10**i for i in range(1, 5)]
     non_stat_l2 = []
     stat_l2 = []
     times = []
