@@ -8,7 +8,7 @@ GEV to
 - negative log-likelihood of GEV distribution
 - GEV PDF
 
-Last edited: 1/29/2026, 6:41 PM CST
+Last edited: 2/6/2026, 10:44 AM CST
 """
 
 import warnings
@@ -224,7 +224,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     # stationary sets the trend in parameters to zero, and keeps the scale parameter positive
     if non_stat:
         cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2] + x[3] * len(data)},  # scale_0 + scale_1 * time >= 0
+                 'fun': lambda x: x[2] + x[3]},  # scale_0 + scale_1 * time >= 0
                 {'type': 'ineq',
                  'fun': lambda x: x[2]})  # scale_0 >= 0
 
