@@ -181,7 +181,6 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, all_mems=False, par
     # return the amended dataset
     return ds
 
-
 def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     """Fit a potentiallly nonstationary GEV distribution to data via MLE.
     """
@@ -224,19 +223,23 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     # stationary sets the trend in parameters to zero, and keeps the scale parameter positive
     if non_stat:
         cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2] + x[3] * len(data)},  # scale_0 + scale_1 * time >= 0
-                {'type': 'ineq',
-                 'fun': lambda x: x[2]})  # scale_0 >= 0
+                 'fun': lambda x: x[2] + x[3]}  # scale_0 + scale_1 * time >= 0
+                 )
 
     else:
-        cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2]},  # scale_0 >= 0
-                {'type': 'eq',
+        cons = ({'type': 'eq',
                  'fun': lambda x: x[1]},  # loc_1 = 0 (no trend)
                 {'type': 'eq',
                  'fun': lambda x: x[3]},  # scale_1 = 0 (no trend)
                 {'type': 'eq',
                  'fun': lambda x: x[5]})  # shape_1 = 0 (no trend)
+
+    bounds = ((None, None),
+            (None, None),
+            (0.0, None),  # sigma >= 0 (this bound + inequality constraint above ensures \sigma_t >= for all t when fit is nonstationary)
+            (None, None),
+            (-1, 1),  # bar{xi} can't be too big or MLE is unstable
+            (-1, 1))  # xi' can't be too big for same reason
         
     # do MLE fit
     fit = minimize(_negative_log_likelihood,
@@ -244,6 +247,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
                     args=(data, non_stat),
                     method='SLSQP',  # SLSQP to allow for constraints
                     constraints=cons,
+                    bounds=bounds,
                     # jac=_grad_negative_log_likelihood
                     )
 
@@ -253,7 +257,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
         _mle_fit.success_count += 1
         total = _mle_fit.success_count + _mle_fit.fail_count
         success_rate = _mle_fit.success_count / total
-        # print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
+        print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
         if non_stat:
             return np.array(fit.x)  # return all 6 parameters
         else:
@@ -264,7 +268,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
         _mle_fit.fail_count += 1
         total = _mle_fit.success_count + _mle_fit.fail_count
         success_rate = _mle_fit.success_count / total
-        # print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
+        print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
         if non_stat:
             return np.array([np.nan] * 6)  # return nans for failed fit
         else:
