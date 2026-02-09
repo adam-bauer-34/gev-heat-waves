@@ -6,7 +6,7 @@ UChicago
 
 To run: main_gev_fit.py GRID STAT [TMIN]
 
-Last edited: 2/6/2026, 11:02 AM CST
+Last edited: 2/6/2026, 1:28 PM CST
 """
 
 import sys
@@ -72,11 +72,11 @@ if STAT == 'stat':
     dss_with_fit = [ds_mle_fit(ds, var_name='t2m') for ds in dss]
     reset_mle_stats()
     
-    print("   Step 2/3: Fitting GEV to 't2m_anom_annmean' variable...")
+    print("   \nStep 2/3: Fitting GEV to 't2m_anom_annmean' variable...")
     dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom_annmean') for ds in dss_with_fit]
     reset_mle_stats()
     
-    print("   Step 3/3: Fitting GEV to 't2m_anom_trend' variable...")
+    print("   \nStep 3/3: Fitting GEV to 't2m_anom_trend' variable...")
     dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom_trend') for ds in dss_with_fit_on_both]
     reset_mle_stats()
 
@@ -87,12 +87,12 @@ elif STAT == 'nonstat':
                                fit_dim='year', non_stat=True) for ds in dss]
     reset_mle_stats()
     
-    print("   Step 2/3: Fitting non-stationary GEV to 't2m_anom_annmean' variable...")
+    print("   \nStep 2/3: Fitting non-stationary GEV to 't2m_anom_annmean' variable...")
     dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom_annmean',
                                        fit_dim='year', non_stat=True) for ds in dss_with_fit]
     reset_mle_stats()
     
-    print("   Step 3/3: Fitting non-stationary GEV to 't2m_anom_trend' variable...")
+    print("   \nStep 3/3: Fitting non-stationary GEV to 't2m_anom_trend' variable...")
     dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom_trend',
                                        fit_dim='year', non_stat=True) for ds in dss_with_fit_on_both]
     reset_mle_stats()
