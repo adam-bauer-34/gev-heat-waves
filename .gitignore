@@ -220,3 +220,4 @@ config/paths.yaml
 # ignore batch files
 *.sbatch
 logs/
+test*
