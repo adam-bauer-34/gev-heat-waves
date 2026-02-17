@@ -74,7 +74,7 @@ def process_single_fit(var, model_with_most, mem, fpath, STAT, fit_type, width, 
                 var_name='tas', 
                 fit_dim='year',
                 non_stat=non_stat,
-                all_mems=True
+                all_mems=False
             )
             
         elif fit_type == 'annmean':
@@ -84,7 +84,7 @@ def process_single_fit(var, model_with_most, mem, fpath, STAT, fit_type, width, 
                 var_name='t2m_anom_annmean', 
                 fit_dim='year',
                 non_stat=non_stat,
-                all_mems=True
+                all_mems=False
             )
             
         elif fit_type == 'trend':
@@ -94,7 +94,7 @@ def process_single_fit(var, model_with_most, mem, fpath, STAT, fit_type, width, 
                 var_name='t2m_anom_trend', 
                 fit_dim='year',
                 non_stat=non_stat,
-                all_mems=True
+                all_mems=False
             )
         else:
             raise ValueError(f"Unknown fit_type: {fit_type}")
@@ -246,19 +246,9 @@ def combine_results_into_datasets(all_results, model_with_most, STAT, data_path_
             stacked = np.stack(arrays, axis=0)
             
             # Create dimensions tuple
-            # Assuming original dimensions are like ('lat', 'lon') or ('year', 'lat', 'lon')
-            # The new dimension will be ('member_id', original_dims...)
-            original_shape = arrays[0].shape
-            
-            # Infer dimension names from coords_dict or use generic names
-            if len(original_shape) == 2:
-                dims = ('member_id', 'lat', 'lon')
-            elif len(original_shape) == 3:
-                dims = ('member_id', 'year', 'lat', 'lon')
-            else:
-                # Generic dimension names
-                dims = ('member_id',) + tuple(f'dim_{i}' for i in range(len(original_shape)))
-            
+            dims = ('member_id', 'lat', 'lon')
+
+            # set data variable with member_id dimension            
             data_vars[var_name] = (dims, stacked)
         
         # Create coords dictionary with member_id added
