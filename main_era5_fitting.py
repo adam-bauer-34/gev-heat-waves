@@ -5,6 +5,8 @@ UChicago
 11.10.2025
 
 To run: main_gev_fit.py GRID STAT [TMIN]
+
+Last edited: 2/6/2026, 1:28 PM CST
 """
 
 import sys
@@ -13,7 +15,7 @@ import shutil
 import xarray as xr
 
 from config import DATA_ROOT
-from src.mle import ds_mle_fit
+from src.mle import ds_mle_fit, reset_mle_stats
 from pathlib import Path
 
 # import command line arguments
@@ -46,7 +48,7 @@ print("=" * width)
 
 print("\n📂 Importing land-masked data...")
 # define variables and open datasets
-vars = ['t2m_annual_max', 't2m_annual_min']
+vars = ['t2m_annual_max']
 fnames = ['era5_' + var + '_' + GRID + '_landonly.nc' for var in vars]
 print(f"   Variables: {', '.join(vars)}")
 print(f"   Loading {len(fnames)} datasets from {DATA_ROOT / 'ERA5' / 'landonly'}")
@@ -68,26 +70,32 @@ if STAT == 'stat':
     print("🔧 Performing STATIONARY GEV fits...")
     print("   Step 1/3: Fitting GEV to 't2m' variable...")
     dss_with_fit = [ds_mle_fit(ds, var_name='t2m') for ds in dss]
+    reset_mle_stats()
     
-    print("   Step 2/3: Fitting GEV to 't2m_anom_annmean' variable...")
+    print("   \nStep 2/3: Fitting GEV to 't2m_anom_annmean' variable...")
     dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom_annmean') for ds in dss_with_fit]
+    reset_mle_stats()
     
-    print("   Step 3/3: Fitting GEV to 't2m_anom_trend' variable...")
+    print("   \nStep 3/3: Fitting GEV to 't2m_anom_trend' variable...")
     dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom_trend') for ds in dss_with_fit_on_both]
+    reset_mle_stats()
 
 elif STAT == 'nonstat':
     print("🔧 Performing NON-STATIONARY GEV fits...")
     print("   Step 1/3: Fitting non-stationary GEV to 't2m' variable...")
     dss_with_fit = [ds_mle_fit(ds, var_name='t2m',
                                fit_dim='year', non_stat=True) for ds in dss]
+    reset_mle_stats()
     
-    print("   Step 2/3: Fitting non-stationary GEV to 't2m_anom_annmean' variable...")
+    print("   \nStep 2/3: Fitting non-stationary GEV to 't2m_anom_annmean' variable...")
     dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom_annmean',
                                        fit_dim='year', non_stat=True) for ds in dss_with_fit]
+    reset_mle_stats()
     
-    print("   Step 3/3: Fitting non-stationary GEV to 't2m_anom_trend' variable...")
+    print("   \nStep 3/3: Fitting non-stationary GEV to 't2m_anom_trend' variable...")
     dss_with_fit_on_both = [ds_mle_fit(ds, var_name='t2m_anom_trend',
                                        fit_dim='year', non_stat=True) for ds in dss_with_fit_on_both]
+    reset_mle_stats()
 
 else:
     print("❌ Error: Invalid STAT argument!")

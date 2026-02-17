@@ -5,6 +5,8 @@ UChicago
 11.10.2025
 
 To run: main_gev_fit.py GRID DO_BOOTSTRAPPING
+
+Last edited: 2/5/2026, 12:45 AM CST
 """
 
 import sys

@@ -8,7 +8,7 @@ GEV to
 - negative log-likelihood of GEV distribution
 - GEV PDF
 
-Last edited: 1/29/2026, 10:22 AM CST
+Last edited: 2/6/2026, 1:24 PM CST
 """
 
 import warnings
@@ -731,7 +731,7 @@ if __name__ == '__main__':
 
     # simple test case
     np.random.seed(42)
-    sample_sizes = [10**i for i in range(2, 3)]
+    sample_sizes = [10**i for i in range(1, 5)]
     non_stat_l2 = []
     stat_l2 = []
     times = []
