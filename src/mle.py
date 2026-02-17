@@ -181,7 +181,6 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, all_mems=False, par
     # return the amended dataset
     return ds
 
-
 def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     """Fit a potentiallly nonstationary GEV distribution to data via MLE.
     """
@@ -237,7 +236,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
 
     bounds = ((None, None),
             (None, None),
-            (0.0, None),
+            (0.0, None),  # sigma >= 0 (this bound + inequality constraint above ensures \sigma_t >= for all t when fit is nonstationary)
             (None, None),
             (-1, 1),  # bar{xi} can't be too big or MLE is unstable
             (-1, 1))  # xi' can't be too big for same reason
@@ -283,6 +282,13 @@ def reset_mle_stats(silent=True):
     _mle_fit.fail_count = 0 
     if not silent:
         print("\nMLE stats reset.")
+
+
+def get_mle_success_rate():
+    """Report the MLE success rate.
+    """
+    total = _mle_fit.success_count + _mle_fit.fail_count
+    return _mle_fit.success_count / total  # success rate of MLE algorithm
 
 
 def _negative_log_likelihood(params, data, non_stat=False):
