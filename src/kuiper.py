@@ -12,14 +12,21 @@ from scipy.stats import genextreme
 from src.mle import _mle_fit
 from astropy.stats import kuiper
 
-def compute_kuiper_stats(ds, var_name='t2m', print_summary=False):
+
+def compute_kuiper_stats(ds, var_name='t2m', print_summary=True):
     """write if works
     """
     if var_name == 't2m':
         gev_append = '_raw'
     
-    elif var_name == 't2m_anom':
-        gev_append = '_anom'
+    elif var_name == 't2m_anom_annmean':
+        gev_append = '_anom_annmean'
+
+    elif var_name == 't2m_anom_trend':
+        gev_append = "_anom_trend"
+
+    else:
+        raise ValueError(f"{var_name} argument in compute_kuiper_stats is invalid.")
 
     # compute Kuiper statistics for observed and synthetic data
     da_ko = xr.apply_ufunc(
@@ -37,7 +44,7 @@ def compute_kuiper_stats(ds, var_name='t2m', print_summary=False):
 
     # now handle synthetic obs + kuiper calculation.
     # first do synthetic draws via fitted distributions
-    print("Doing synthetic bootstrapping fits + computing Kuiper statistics...")
+    # print("Doing synthetic bootstrapping fits + computing Kuiper statistics...")
     da_ks = xr.apply_ufunc(
         _kuiper_syn,
         ds['shape'+ gev_append],
@@ -56,9 +63,16 @@ def compute_kuiper_stats(ds, var_name='t2m', print_summary=False):
         ds = ds.assign(obs_k_raw=(('lat', 'lon'), da_ko.data[:, :, 0]))
         ds = ds.assign(syn_k_raw=(('lat', 'lon'), da_ks.data[:, :, 0]))
 
-    elif var_name == 't2m_anom':
-        ds = ds.assign(obs_k_anom=(('lat', 'lon'), da_ko.data[:, :, 0]))
-        ds = ds.assign(syn_k_anom=(('lat', 'lon'), da_ks.data[:, :, 0]))
+    elif var_name == 't2m_anom_annmean':
+        ds = ds.assign(obs_k_anom_annmean=(('lat', 'lon'), da_ko.data[:, :, 0]))
+        ds = ds.assign(syn_k_anom_annmean=(('lat', 'lon'), da_ks.data[:, :, 0]))
+
+    elif var_name == 't2m_anom_trend':
+        ds = ds.assign(obs_k_anom_trend=(('lat', 'lon'), da_ko.data[:, :, 0]))
+        ds = ds.assign(syn_k_anom_trend=(('lat', 'lon'), da_ks.data[:, :, 0]))
+
+    else:
+        raise ValueError(f"Invalid variable name {var_name}.")
 
     if print_summary:
         _print_summary(ds, 'obs_k', gev_append)

@@ -103,7 +103,7 @@ models:
     - CESM2-WACCM_r1i1p1f1
     - CESM2-WACCM_r2i1p1f1
     - CESM2-WACCM_r3i1p1f1
-    primary_member: CESM2-WACCM_day
+    primary_member: CESM2-WACCM_r1i1p1f1
   CESM2-WACCM-FV2:
     N_members: 3
     ensemble_members:
@@ -329,7 +329,7 @@ models:
     - MIROC-ES2L_r7i1p1f2
     - MIROC-ES2L_r8i1p1f2
     - MIROC-ES2L_r9i1p1f2
-    primary_member: MIROC-ES2L_day
+    primary_member: MIROC-ES2L_r1i1p1f2
   MIROC6:
     N_members: 50
     ensemble_members:

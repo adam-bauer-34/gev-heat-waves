@@ -1,0 +1,95 @@
+Phoenix:
+  lat: 33.45
+  lon: 247.93
+  max_T_raw_obs: 50.0
+  year: 1990
+
+Mexico City:
+  lat: 19.43
+  lon: 260.87
+  max_T_raw_obs: 37.2
+  year: null
+
+Buenos Aires:
+  lat: -34.60
+  lon: 301.62
+  max_T_raw_obs: 40.0
+  year: 2022
+
+Sao Paulo:
+  lat: -23.55
+  lon: 313.37
+  max_T_raw_obs: 37.0
+  year: 2014
+
+London:
+  lat: 51.51
+  lon: 359.87
+  max_T_raw_obs: 40.2
+  year: 2022
+
+Lyon:
+  lat: 45.76
+  lon: 4.83
+  max_T_raw_obs: 41.4
+  year: 2023
+
+Madrid:
+  lat: 40.42
+  lon: 356.30
+  max_T_raw_obs: 46.0
+  year: 2021
+
+Cairo:
+  lat: 30.05
+  lon: 31.23
+  max_T_raw_obs: 48.0
+  year: 1961
+
+Lagos:
+  lat: 6.45
+  lon: 3.42
+  max_T_raw_obs: 38.0
+  year: null
+
+New Delhi:
+  lat: 28.61
+  lon: 77.21
+  max_T_raw_obs: 49.9
+  year: 2024
+
+Tokyo:
+  lat: 35.69
+  lon: 139.69
+  max_T_raw_obs: 39.5
+  year: 2004
+
+Shanghai:
+  lat: 31.23
+  lon: 121.47
+  max_T_raw_obs: 40.9
+  year: 2022
+
+Moscow:
+  lat: 55.75
+  lon: 37.62
+  max_T_raw_obs: 38.2
+  year: 2010
+
+Sydney:
+  lat: -33.86
+  lon: 151.21
+  max_T_raw_obs: 45.8
+  year: 2020
+
+Melbourne:
+  lat: -37.81
+  lon: 144.96
+  max_T_raw_obs: 46.4
+  year: 2009
+
+Seattle:
+  lat: 47.61
+  lon: 237.61
+  max_T_raw_obs: 42.0
+  year: 2021

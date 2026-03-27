@@ -1,0 +1,53 @@
+Seattle:
+  lat: 47.61
+  lon: 237.61
+  max_T_raw_obs: 42.0
+  year: 2021
+
+Mexico City:
+  lat: 19.43
+  lon: 260.87
+  max_T_raw_obs: 34.7
+  year: 2024
+
+Sao Paulo:
+  lat: -23.55
+  lon: 313.37
+  max_T_raw_obs: 37.0
+  year: 2014
+
+Lyon:
+  lat: 45.76
+  lon: 4.83
+  max_T_raw_obs: 40.5
+  year: 2003
+
+Lagos:
+  lat: 6.45
+  lon: 3.42
+  max_T_raw_obs: 40.1
+  year: 2020
+
+New Delhi:
+  lat: 28.61
+  lon: 77.21
+  max_T_raw_obs: 49.9
+  year: 2024
+
+Moscow:
+  lat: 55.75
+  lon: 37.62
+  max_T_raw_obs: 38.2
+  year: 2010
+
+Tokyo:
+  lat: 35.69
+  lon: 139.69
+  max_T_raw_obs: 39.5
+  year: 2004
+
+Melbourne:
+  lat: -37.81
+  lon: 144.96
+  max_T_raw_obs: 46.4
+  year: 2009

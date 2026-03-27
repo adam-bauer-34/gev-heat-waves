@@ -12,6 +12,7 @@ To run: mpirun -n [number of tasks in allocation] python main_era5_fitting_kuipe
 
 import sys
 import shutil
+import os
 import traceback
 import time
 
@@ -19,7 +20,7 @@ import xarray as xr
 
 from mpi4py import MPI
 from config import DATA_ROOT
-from src.mle import ds_mle_fit, reset_mle_stats
+from src.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
 from src.kuiper import compute_kuiper_stats
 from pathlib import Path
 
@@ -50,6 +51,12 @@ def process_single_fit_and_kuiper(var, TMIN, anom_type, GRID, width, rank):
         )
         ds = xr.open_dataset(fpath)
 
+        gev_dir = fpath.parent.parent / 'gev'
+        kuiper_name = f"era5_{var}_{GRID}_landonly_gev_stat_TMIN{TMIN}_[var_suffix]_kuiper.nc"
+        stat_output_path = gev_dir / kuiper_name
+
+        print(f"Rank [{rank}]: output path is {stat_output_path}")
+
         # ==============================
         # STEP 1: DO STATIONARY FIT
         # ==============================
@@ -69,7 +76,7 @@ def process_single_fit_and_kuiper(var, TMIN, anom_type, GRID, width, rank):
                 fit_dim='year',
                 non_stat=False
             )
-            var_suffix = 'annmean'            
+            var_suffix = 'annmean'
         
         elif anom_type == 'trend':
             ds_stat_fit = ds_mle_fit(
@@ -84,6 +91,7 @@ def process_single_fit_and_kuiper(var, TMIN, anom_type, GRID, width, rank):
             raise ValueError(f"Unknown anom_type: {anom_type}")
 
         # reset MLE success counter
+        stat_success_rate = get_mle_success_rate()
         reset_mle_stats()
 
         print(f"[RANK {rank}] Completed stationary fitting for {var}:{anom_type}:{TMIN}. Moving on to Kuiper statistics...")
@@ -91,24 +99,60 @@ def process_single_fit_and_kuiper(var, TMIN, anom_type, GRID, width, rank):
         # ==================================
         # STEP 2: COMPUTE KUIPER STATISTICS
         # ==================================     
-        ds_kuiper = compute_kuiper_stats(
-            ds_stat_fit,
-            var_name=None
-        )
+        if anom_type == 'raw':
+            ds_kuiper = compute_kuiper_stats(
+                ds_stat_fit,
+                var_name='t2m'
+            )
+            var_suffix = 'raw'
+
+        elif anom_type == 'annmean':
+            ds_kuiper = compute_kuiper_stats(
+                ds_stat_fit,
+                var_name='t2m_anom_annmean'
+            )
+            var_suffix = 'annmean'            
+
+        elif anom_type == 'trend':
+            ds_kuiper = compute_kuiper_stats(
+                ds_stat_fit,
+                var_name='t2m_anom_trend'
+            )
+            var_suffix = 'trend'
+
+        else:
+            raise ValueError(f"Unknown anom_type: {anom_type}")
+
+        
+        # set success rate
+        ds_kuiper.attrs['MLE_success_rate'] = stat_success_rate
+
+        # reset success rate for mle
+        reset_mle_stats()
+
+        # check: print kuiper dataset
+        print(f"[Rank {rank}]: Kuiper statistics-fitted dataset:\n {ds_kuiper}")
         
         # save joined dataset from stationary + kuiper stats
-        stat_output_path = None
-        ds_kuiper.to_netcdf(stat_output_path)
+        gev_dir = fpath.parent.parent / 'gev'
+        gev_dir.mkdir(parents=True, exist_ok=True)  # ensure dir exists
+
+        kuiper_name = f"era5_{var}_{GRID}_landonly_gev_stat_TMIN{TMIN}_{var_suffix}_kuiper.nc"
+        stat_output_path = gev_dir / kuiper_name
+
+        print(f"The output path is: {stat_output_path}")
+
+        ds_kuiper.to_netcdf(stat_output_path)  # save kuiper results
 
         # close kuiper and stationary datasets after saving to keep memory abundant
         ds_kuiper.close()
-        ds_stat_fit.close()  
+        ds_stat_fit.close()
 
         # ==============================
         # STEP 3: DO NONSTATIONARY FIT
         # ==============================
         if anom_type == 'raw':
-            ds_stat_fit = ds_mle_fit(
+            ds_nonstat_fit = ds_mle_fit(
                 ds,
                 var_name='t2m',
                 fit_dim='year',
@@ -117,7 +161,7 @@ def process_single_fit_and_kuiper(var, TMIN, anom_type, GRID, width, rank):
             var_suffix = 'raw'
 
         elif anom_type == 'annmean':
-            ds_stat_fit = ds_mle_fit(
+            ds_nonstat_fit = ds_mle_fit(
                 ds,
                 var_name='t2m_anom_annmean',
                 fit_dim='year',
@@ -126,7 +170,7 @@ def process_single_fit_and_kuiper(var, TMIN, anom_type, GRID, width, rank):
             var_suffix = 'annmean'            
         
         elif anom_type == 'trend':
-            ds_stat_fit = ds_mle_fit(
+            ds_nonstat_fit = ds_mle_fit(
                 ds,
                 var_name='t2m_anom_trend',
                 fit_dim='year',
@@ -137,7 +181,16 @@ def process_single_fit_and_kuiper(var, TMIN, anom_type, GRID, width, rank):
         else:
             raise ValueError(f"Unknown anom_type: {anom_type}")
         
+        # get mle success rate
+        nonstat_success_rate = get_mle_success_rate()
+        ds_nonstat_fit.attrs['MLE_success_rate'] = nonstat_success_rate
+        reset_mle_stats()
+
         # save nonstationary dataset
+        nonstat_output_path = gev_dir / f"era5_{var}_{GRID}_landonly_gev_nonstat_TMIN{TMIN}_{var_suffix}.nc"
+        print(nonstat_output_path)
+        ds_nonstat_fit.to_netcdf(nonstat_output_path)  # save kuiper results
+
         # close dataset
         # return success, anomaly type, stationary fit output path, nonstationary fit output path, and error msg
         return (True, anom_type, stat_output_path, nonstat_output_path, None)
@@ -147,7 +200,7 @@ def process_single_fit_and_kuiper(var, TMIN, anom_type, GRID, width, rank):
         print(f"Rank: {rank}] ❌ {error_msg}")
 
         # return success, anomaly type, stationary fit output path, nonstationary fit output path, and error msg
-        return (False, anom_type, None, error_msg)
+        return (False, anom_type, None, None, error_msg)
     
 
 def main():
@@ -160,7 +213,7 @@ def main():
     size = comm.Get_size()  # total number of processes
     
     # Get command line arguments
-    if len(sys.argv) != 1:
+    if len(sys.argv) != 2:
         if rank == 0:
             print("Usage: srun -n <nprocs> python main_cmip_fitting_mpi.py STAT")
             print("where STAT is 'stat' or 'nonstat'")
@@ -182,7 +235,7 @@ def main():
         print('='*width)
         
         # Define variables, stationary/nonstationary, and anomaly types to parallelize over
-        vars = ['tas_annual_max', 'tas_annual_min']
+        vars = ['t2m_annual_max', 't2m_annual_min']
         anom_types = ['raw', 'annmean', 'trend']
         tmins = [1950, 1979]
         
@@ -210,7 +263,7 @@ def main():
                     })
         
         print(f"\n📋 Total tasks to process: {len(all_tasks)}")
-        print(f"   ({len(all_tasks)//3} models × 3 fits per model)")
+        print(f"   ({len(vars)} variables × {len(anom_types)} amomaly types per variables × {len(tmins)} minimum times per fit)")
         print(f"🖥️  Number of MPI processes: {size}")
         print(f"📊 Tasks per process: ~{len(all_tasks) / size:.1f}")
         print('='*width)
@@ -236,7 +289,7 @@ def main():
     # loop through tasks for this rank and perform operations...
     for task_idx, task in enumerate(my_tasks):
         print(f"[Rank {rank}] Processing task {task_idx+1}/{len(my_tasks)}: "
-              f"{task['var']}:{task['model'].name}:{task['fit_type']}")
+              f"{task['var']}:{task['TMIN']}:{task['anom_type']}")
         
         result = process_single_fit_and_kuiper(
             var=task['var'],
