@@ -50,6 +50,7 @@ def process_single_fit_and_kuiper(var, TMIN, anom_type, GRID, width, rank):
             'era5_' + var + '_' + GRID + '_landonly.nc'
         )
         ds = xr.open_dataset(fpath)
+        ds = ds.sel(year=slice(TMIN, 2024))
 
         gev_dir = fpath.parent.parent / 'gev'
         kuiper_name = f"era5_{var}_{GRID}_landonly_gev_stat_TMIN{TMIN}_[var_suffix]_kuiper.nc"
@@ -237,7 +238,7 @@ def main():
         # Define variables, stationary/nonstationary, and anomaly types to parallelize over
         vars = ['t2m_annual_max', 't2m_annual_min']
         anom_types = ['raw', 'annmean', 'trend']
-        tmins = [1950, 1979]
+        tmins = [1979]
         
         # Collect all tasks (each fit is now a separate task)
         all_tasks = []

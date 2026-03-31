@@ -9,6 +9,8 @@ To run: python main_kuiper_bootstrapping.py
 Last edited: 2/5/2026, 12:45 AM CST
 """
 
+import sys
+
 import xarray as xr
 import numpy as np
 
@@ -18,6 +20,9 @@ from astropy.stats import kuiper
 from src.mle import _mle_fit
 from config import DATA_ROOT
 
+
+TMIN = sys.argv[1]
+N_YEARS = 2024 - int(TMIN)  # hard coded from number of years in climate model record
 
 np.random.seed(42)  # set seed for reproducibility
 
@@ -37,7 +42,7 @@ for n in range(N_BOOTSTRAP):
     tmp_sample = genextreme.rvs(c=-shape,
                                 loc=loc,
                                 scale=scale,
-                                size=(2024 - 1979)  # hard coded from number of years in climate model record
+                                size=N_YEARS  # hard coded from number of years in climate model record
                                 )
     
     # fit a GEV to those data
@@ -62,10 +67,10 @@ ds_boot = xr.Dataset(
     attrs={
         'shape': shape,
         'loc': loc,
-        'scale': scale
+        'scale': scale,
     }
 )
 
-filepath = DATA_ROOT / 'stats' / 'bootstrapped_ks.nc'  # save to general stats data folder
+filepath = DATA_ROOT / 'stats' / f'bootstrapped_ks_{TMIN}.nc'  # save to general stats data folder
 ds_boot.to_netcdf(filepath)  # save
-print('Bootstrapped Kuiper statistics saved to: {}'.format(filepath))
+print(f'Bootstrapped Kuiper statistics saved to: {filepath}')
