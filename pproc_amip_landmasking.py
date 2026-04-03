@@ -1,14 +1,14 @@
-"""Preprocess CMIP6 data.
+"""Preprocess amip data.
 
-This script will mask out the oceans in CMIP6, leaving only the land
-surface for our analysis. Note we use the ERA5 land/sea mask for 
+This script will mask out the oceans in AMIP, leaving only the land
+surface for our analysis. Note we use the ERA5 land/sea mask for
 consistency with our ERA5-based analysis.
 
 Adam Michael Bauer
 UChicago
 1.12.2026
 
-To run: pproc_cmip6_landmasking.py MAKE_CHECK_PLOTS
+To run: pproc_amip_landmasking.py MAKE_CHECK_PLOTS
 
 Last edited: 1/28/2026, 12:30 PM CST
 """
@@ -29,15 +29,16 @@ from src.utils import extract_model_name
 MAKE_CHECK_PLOTS = bool(int(sys.argv[1]))
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
-# make CMIP6 model config class (only used for plotting here)
-CMIPConfig = CMIP6EnsembleConfig.from_yaml("config/meta.yaml", 
-                                            "config/qc.yaml")
+# make AMIP model config class (only used for plotting here)
+# NOTE: the CMIP one works for AMIP too
+CMIPConfig = CMIP6EnsembleConfig.from_yaml("config/meta_amip.yaml", 
+                                            "config/qc_amip.yaml")
 
 # set mask threshold
 MASK_THRES = 0.5  # "standard", according to Rahul Singh :)
 
 # make annual mean data path for reference
-data_path_mean = DATA_ROOT / 'CMIP6' / 'tas_annual_mean' / 'raw'
+data_path_mean = DATA_ROOT / 'AMIP' / 'tas_annual_mean' / 'raw'
 
 # define variables
 vars = ['tas_annual_max', 'tas_annual_min']
@@ -57,7 +58,7 @@ for var in vars:
     print('='*width)
 
     # make data path
-    data_path = DATA_ROOT / 'CMIP6' / var / 'raw'
+    data_path = DATA_ROOT / 'AMIP' / var / 'raw'
 
     # make list of all files
     fnames = [f for f in data_path.glob('*.nc')]
@@ -80,7 +81,7 @@ for var in vars:
             print(f"Models that have {var} data but not annual mean data: {missing_in_mean}.")
         if missing_in_var:
             print(f"Models that have annual mean data but not {var} data: {missing_in_var}.")
-        
+
         error_message = ("CMIP ensemble data is incomplete."
                          "Either archive models that are missing data,"
                          " or reprocess model output to complete records.")
@@ -99,6 +100,11 @@ for var in vars:
         print("🪛 Working on ", model_name)
         ds = xr.open_dataset(f)
         ds_mean = xr.open_dataset(f_mean)
+
+        # 0. select 1979-2014 range, the time span where monthly SSTs force
+        # AMIP models
+        ds = ds.sel(year=slice(1979, 2014))
+        ds_mean = ds_mean.sel(year=slice(1979, 2014))
 
         # 1. compute anomalies relative to annual mean temperature
         da_anom_annmean = ds['tas'] - ds_mean['tas']

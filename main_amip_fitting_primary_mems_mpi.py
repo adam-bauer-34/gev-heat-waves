@@ -1,13 +1,10 @@
-"""Main file for GEV fitting of CMIP data - MPI parallelized version with independent fits.
+"""Main file for GEV fitting of AMIP data - MPI parallelized version with independent fits.
 
 Adam Michael Bauer
 UChicago
 Jan 2026
 
 Each of the 3 fits per model is treated as an independent task.
-To run: 
-    srun python main_cmip_fitting_mpi.py STAT
-
 Last edited: 1/29/2026
 """
 
@@ -28,7 +25,7 @@ from src.utils import extract_model_name
 def process_single_fit(var, m, modelname_filepath_matcher, STAT, fit_type, width, rank):
     """
     Process a single fit for a single model-variable combination.
-    
+
     Parameters
     ----------
     var : str
@@ -45,7 +42,7 @@ def process_single_fit(var, m, modelname_filepath_matcher, STAT, fit_type, width
         Terminal width for formatting
     rank : int
         MPI rank of current process
-        
+
     Returns
     -------
     tuple
@@ -53,10 +50,11 @@ def process_single_fit(var, m, modelname_filepath_matcher, STAT, fit_type, width
     """
     try:
         print(f"[Rank {rank}] 🪛 Working on {var}:{m.name} - {fit_type} fit")
-        
+
         fpath = modelname_filepath_matcher[m.name]
         ds = xr.open_dataset(fpath)
-        ds_selected = ds.sel(member_id=m.primary_member)
+        ds_selected = ds.sel(member_id=m.primary_member).sel(year=slice(1979,
+            2014))
         
         non_stat = (STAT == 'nonstat')
         
@@ -151,8 +149,8 @@ def main():
         print('='*width)
         
         # Setup CMIP config object
-        CMIPConfig = CMIP6EnsembleConfig.from_yaml("config/meta.yaml", 
-                                                    "config/qc.yaml")
+        CMIPConfig = CMIP6EnsembleConfig.from_yaml("config/meta_amip.yaml", 
+                                                    "config/qc_amip.yaml")
         
         # Define variables and fit types
         vars = ['tas_annual_max', 'tas_annual_min']
@@ -167,8 +165,8 @@ def main():
             print('='*width)
             
             # Make data directory if it doesn't exist
-            os.makedirs(DATA_ROOT / 'CMIP6' / var / 'gev', exist_ok=True)
-            data_path = DATA_ROOT / 'CMIP6' / var / 'landonly'
+            os.makedirs(DATA_ROOT / 'AMIP' / var / 'gev', exist_ok=True)
+            data_path = DATA_ROOT / 'AMIP' / var / 'landonly'
             
             # Make all landonly file names
             fnames = [f for f in data_path.glob("*_landonly.nc")]
