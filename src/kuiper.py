@@ -9,7 +9,7 @@ import numpy as np
 import xarray as xr
 
 from scipy.stats import genextreme
-from src.mle import _mle_fit
+from mle_claude import _mle_fit
 from astropy.stats import kuiper
 
 

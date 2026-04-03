@@ -17,7 +17,7 @@ import numpy as np
 from scipy.stats import genextreme
 from astropy.stats import kuiper
 
-from src.mle import _mle_fit
+from mle_claude import _mle_fit
 from config import DATA_ROOT
 
 
