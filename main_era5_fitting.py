@@ -15,7 +15,7 @@ import shutil
 import xarray as xr
 
 from config import DATA_ROOT
-from mle_claude import ds_mle_fit, reset_mle_stats
+from src.mle_claude import ds_mle_fit, reset_mle_stats
 from pathlib import Path
 
 # import command line arguments

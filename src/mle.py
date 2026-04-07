@@ -82,7 +82,7 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, all_mems=False, par
             da,
             non_stat,
             input_core_dims=[[fit_dim], []],
-            output_core_dims=[['gev_params']]
+            output_core_dims=[['gev_params']],
             vectorize=True,
             dask='parallelized',
             output_dtypes=[float],

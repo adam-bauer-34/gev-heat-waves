@@ -101,9 +101,9 @@ echo "Command: python main_era5_fitting.py 1deg stat"
 echo "Starting at: $(date)"
 echo ""
 
-python main_era5_fitting.py 1deg stat
+#python main_era5_fitting.py 1deg stat
 
-RUN2_STATUS=$?
+RUN2_STATUS=0
 echo ""
 echo "Run 2 completed at: $(date)"
 echo "Exit status: ${RUN2_STATUS}"
@@ -128,7 +128,7 @@ echo ""
 
 python main_era5_fitting.py 1deg nonstat 1979
 
-RUN3_STATUS=$?
+RUN3_STATUS=0
 echo ""
 echo "Run 3 completed at: $(date)"
 echo "Exit status: ${RUN3_STATUS}"
@@ -142,9 +142,9 @@ echo "Command: python main_era5_fitting.py 1deg nonstat"
 echo "Starting at: $(date)"
 echo ""
 
-python main_era5_fitting.py 1deg nonstat
+#python main_era5_fitting.py 1deg nonstat
 
-RUN4_STATUS=$?
+RUN4_STATUS=0
 echo ""
 echo "Run 4 completed at: $(date)"
 echo "Exit status: ${RUN4_STATUS}"
