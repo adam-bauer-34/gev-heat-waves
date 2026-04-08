@@ -23,7 +23,7 @@ def setup_logger(debug=False):
     """Set up a logger for the experiment.
     """
 
-    logger = logging.getLogger("var_assim")
+    logger = logging.getLogger("evt_heat_waves")
 
     if logger.hasHandlers():
         logger.handlers.clear()

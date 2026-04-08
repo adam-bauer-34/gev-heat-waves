@@ -1,0 +1,13 @@
+[project]
+name = "evt_heat_waves"
+version = "0.1.0"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+pproc = "evt_heat_waves.main_pproc:main"
+fit-gev = "evt_heat_waves.main_fitting:main"
+fit-gev-mpi = "evt_heat_waves.main_fitting_mpi:main"
+kuiper = "evt_heat_waves.main_kuiper:main"
+bootstrap-kuiper = "evt_heat_waves.main_kuiper_bootstrapping:main"
