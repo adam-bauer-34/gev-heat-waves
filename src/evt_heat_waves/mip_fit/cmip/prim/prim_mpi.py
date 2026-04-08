@@ -1,14 +1,8 @@
-"""Main file for GEV fitting of CMIP data - MPI parallelized version with independent fits.
+"""Function bank for MPI-enhanced GEV fitting to CMIP data.
 
 Adam Michael Bauer
 UChicago
-Jan 2026
-
-Each of the 3 fits per model is treated as an independent task.
-To run: 
-    srun python main_cmip_fitting_mpi.py STAT
-
-Last edited: 1/29/2026
+Apr 8 2026
 """
 
 import os
@@ -19,10 +13,10 @@ import time
 import xarray as xr
 from mpi4py import MPI
 
-from config import DATA_ROOT
-from mle_claude import ds_mle_fit, reset_mle_stats, get_mle_success_rate
-from src.cmip_dataclass import CMIP6EnsembleConfig
-from src.utils import extract_model_name
+from evt_heat_waves.config import CMIP_PATH
+from evt_heat_waves.cmip_dataclass import CMIP6EnsembleConfig
+from evt_heat_waves.utils import extract_model_name
+from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
 
 
 def process_single_fit(var, m, modelname_filepath_matcher, STAT, fit_type, width, rank):
