@@ -13,21 +13,30 @@ Last edited: 2/6/2026, 1:24 PM CST
 
 import warnings
 
-import numpy as np
-import xarray as xr
-
 # ignore divide by zero / overflow warnings that pop up during
 # scipy.optimize.minimize calls and don't really impact performance
 warnings.simplefilter('ignore', RuntimeWarning)
 
+import numpy as np
+import xarray as xr
+
 from scipy.optimize import minimize
 
-def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, all_mems=False, parallel=True):
+
+def ds_mle_fit(logger, args,
+               ds, var_name, fit_dim='year', non_stat=False, all_mems=False, parallel=True):
     """Fit (potentially nonstationary) GEV distribution to each (lat, lon) pair
     of an xarray Dataset via maximum likelihood estimation.
 
     Parameters
     ----------
+    logger: logging.Logger
+        logging object
+
+    args: argparse.Namespace
+        CLI arguments, this needs:
+            - args.fit
+
     ds: xarray.Dataset
         the input dataset containing the data to fit
 
@@ -36,9 +45,6 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, all_mems=False, par
 
     fit_dim: str
         the dimension over which to fit the GEV distribution (e.g., 'year')
-
-    non_stat: bool
-        whether to fit a nonstationary GEV (True) or stationary GEV (False)
 
     all_mems: bool
         fit to all ensemble members? (only applicable for one CMIP model)

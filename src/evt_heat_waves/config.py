@@ -23,6 +23,11 @@ CMIP_PATH = DATA_ROOT / CONFIG["CMIP_DIR"]
 AMIP_PATH = DATA_ROOT / CONFIG["AMIP_DIR"]
 STATS_PATH = DATA_ROOT / CONFIG["STATS_DIR"]
 
+MIP_FIT_PATH_DICT = {
+    'cmip': CMIP_PATH,
+    'amip': AMIP_PATH
+}
+
 
 def parse_args_pproc():
     """Parse CLI arguments for preprocessing.

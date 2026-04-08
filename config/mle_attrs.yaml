@@ -1,0 +1,13 @@
+fit:
+  nonstat:
+    N_params: 6
+    param_names: ['loc', 'loc_t', 'scale', 'scale_t', 'shape', 'shape_t']
+  stat:
+    N_params: 3
+    param_names: ['loc', 'scale', 'shape']
+  stat_fixed_xi:
+    N_params: 2
+    param_names: ['loc', 'scale']
+  nonstat_fixed_xi_loc_trend:
+    N_params: 3
+    param_names: ['loc', 'loc_t', 'scale']
