@@ -7,7 +7,7 @@ Apr 8, 2026
 
 import time
 
-from evt_heat_waves.config import parse_args_pproc, check_config_compatability
+from evt_heat_waves.config import parse_args_pproc
 from evt_heat_waves.logging import setup_logger, get_git_hash
 from evt_heat_waves.pproc import PPROC_REGISTRY
 
@@ -15,9 +15,8 @@ def main():
     """Main function for simulation setup and running.
     """
 
-    # parse arguments and check compatability
+    # parse arguments
     args = parse_args_pproc()
-    check_config_compatability(args)
 
     # setup logging
     logger = setup_logger(args.debug)
