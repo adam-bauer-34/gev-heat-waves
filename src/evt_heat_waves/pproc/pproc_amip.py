@@ -50,25 +50,24 @@ def pproc_amip(logger, args):
     # parse CLI arguments
     MAKE_CHECK_PLOTS = args.make_check_plots
 
-    META_FILE = CONFIG_PATH / 'meta_amip.yaml'
-    QC_FILE = CONFIG_PATH / 'qc_amip.yaml'
+    META_FILE = CONFIG_PATH.parent / 'meta_amip.yaml'
+    QC_FILE = CONFIG_PATH.parent / 'qc_amip.yaml'
 
     if META_FILE.exists() and QC_FILE.exists():
-        logger.info("    meta_amip.yaml and qc_amip.yaml found. Skipping creation.")
+        logger.info("meta_amip.yaml and qc_amip.yaml found. Skipping creation.")
 
     else:
-        logger.info("    metadata and quality control files not found, creating...")
+        logger.info("metadata and quality control files not found, creating...")
         _make_meta_and_qc(logger, args)
 
-    # stop here to allow for manual checking if desired
-    if not args.bypass_checks:
-        logger.info("    ! Please check the files meta_amip.generated.yaml and qc_amip.generated.yaml before proceeding. Once happy, rename meta_amip.generated.yaml -> meta_amip.yaml and qc_amip.generated.yaml -> qc_amip.yaml and rerun.")
-        return None  # stop here to allow for manual checking of meta_amip.yaml and qc_amip.yaml files before proceeding with land masking and regridding
+        # stop here to allow for manual checking if desired
+        if not args.bypass_checks:
+            logger.info("! BREAK - Please check the files meta_amip.generated.yaml and qc_amip.generated.yaml before proceeding. Once happy, rename meta_amip.generated.yaml -> meta_amip.yaml and qc_amip.generated.yaml -> qc_amip.yaml and rerun.")
+            return None  # stop here to allow for manual checking of meta_amip.yaml and qc_amip.yaml files before proceeding with land masking and regridding
 
     # make AMIP model config class (only used for plotting here)
     # NOTE: the CMIP one works for AMIP too
-    CMIPConfig = CMIP6EnsembleConfig.from_yaml("config/meta_amip.yaml", 
-                                                "config/qc_amip.yaml")
+    CMIPConfig = CMIP6EnsembleConfig.from_yaml(META_FILE, QC_FILE)
 
     # set mask threshold
     MASK_THRES = 0.5  # "standard", according to Rahul Singh :)
@@ -84,12 +83,12 @@ def pproc_amip(logger, args):
         land_mask = xr.open_dataset(ERA5_PATH / 'era5_land_mask_1deg.nc')
 
     except FileNotFoundError:
-        logger.info("    No regridded land mask found, making a new one...")
+        logger.info("No regridded land mask found, making a new one...")
         make_regridded_land_mask(GRID='1deg')
         land_mask = xr.open_dataset(ERA5_PATH / 'era5_land_mask_1deg.nc')
 
     for var in vars:
-        logger.info("    Regridding and masking ", var, " data...")
+        logger.info(f"Regridding and masking {var} data...")
 
         # make data path
         data_path = AMIP_PATH / var / 'raw'
@@ -110,13 +109,13 @@ def pproc_amip(logger, args):
             missing_in_mean = var_models - mean_models
             missing_in_var = mean_models - var_models
 
-            logger.info("    ⚠️ Not all CMIP output have complete data records for analysis.")
+            logger.info("⚠️ Not all CMIP output have complete data records for analysis.")
             if missing_in_mean:
-                logger.info(f"    Models that have {var} data but not annual mean data: {missing_in_mean}.")
+                logger.info(f"Models that have {var} data but not annual mean data: {missing_in_mean}.")
             if missing_in_var:
-                logger.info(f"    Models that have annual mean data but not {var} data: {missing_in_var}.")
+                logger.info(f"Models that have annual mean data but not {var} data: {missing_in_var}.")
             
-            error_message = ("    CMIP ensemble data is incomplete."
+            error_message = ("CMIP ensemble data is incomplete."
                             "Either archive models that are missing data,"
                             " or reprocess model output to complete records.")
             raise ValueError(error_message)
@@ -130,7 +129,7 @@ def pproc_amip(logger, args):
             fparts = f.stem.split('_')
             model_name = '_'.join(fparts[2:3])  # hard coded, would have to change if we had diff data
 
-            logger.info("        Working on ", model_name)
+            logger.info(f"    Working on {model_name}...")
             ds = xr.open_dataset(f)
             ds_mean = xr.open_dataset(f_mean)
 
@@ -170,7 +169,7 @@ def pproc_amip(logger, args):
             ).name  # make name of file with _landonly appended on end
             ds_masked.to_netcdf(land_dir / land_name)  # save to netCDF file
 
-            logger.info(f"        {model_name} land masking done and saved successfully to: {land_dir / land_name}")
+            logger.info(f"    {model_name} land masking done and saved successfully to: {land_dir / land_name}")
 
             # close datasets to save memory
             ds.close()
@@ -190,7 +189,7 @@ def pproc_amip(logger, args):
                     save_figs=True,
                     filename_args=['tas_landmask_check_' + var + '_' + model_name, 'png', FIGS_PATH / 'checks']
                     )
-                logger.info(f"         Check plot for {model_name} saved.")
+                logger.info(f"     Check plot for {model_name} saved.")
 
 
 def _make_meta_and_qc(logger, args):
@@ -217,9 +216,9 @@ def _make_meta_and_qc(logger, args):
 
     # loop through variables for QC
     for var in vars:
-        logger.info('='*width)
-        logger.info("Performing QC on {} data...".format(var))
-        logger.info('='*width)
+        logger.info("    " + "."*width)
+        logger.info("    Performing QC on {} data...".format(var))
+        logger.info("    " + "."*width)
 
         # set data path, making sure to QC on raw data
         data_path = AMIP_PATH / var / 'raw'
@@ -239,8 +238,7 @@ def _make_meta_and_qc(logger, args):
             fparts = f.stem.split('_')
             model = '_'.join(fparts[2:3])
 
-            logger.info("-"*width)
-            logger.info("Working on {}...".format(model))
+            logger.info("    Working on {}...".format(model))
 
             # open dataset
             ds = xr.open_dataset(f)
@@ -322,7 +320,7 @@ def _make_meta_and_qc(logger, args):
     qcs['models'] = qc
 
     # save dictionaries as .yamls 
-    outpath_meta = Path(CONFIG_PATH / 'meta_amip.yaml') if args.bypass_checks else Path(CONFIG_PATH / 'meta_amip.generated.yaml')
+    outpath_meta = Path(CONFIG_PATH.parent / 'meta_amip.yaml') if args.bypass_checks else Path(CONFIG_PATH.parent / 'meta_amip.generated.yaml')
     with open(outpath_meta, 'w') as f:
         yaml.safe_dump(
             yaml_safe(metas),
@@ -332,7 +330,7 @@ def _make_meta_and_qc(logger, args):
             indent=2
         )
 
-    outpath_qc = Path(CONFIG_PATH / 'qc_amip.yaml') if args.bypass_checks else Path(CONFIG_PATH / 'qc_amip.generated.yaml')
+    outpath_qc = Path(CONFIG_PATH.parent / 'qc_amip.yaml') if args.bypass_checks else Path(CONFIG_PATH.parent / 'qc_amip.generated.yaml')
     with open(outpath_qc, 'w') as f:
         yaml.safe_dump(
             yaml_safe(qcs),

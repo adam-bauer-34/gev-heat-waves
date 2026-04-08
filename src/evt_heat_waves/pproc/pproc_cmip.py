@@ -46,28 +46,29 @@ def pproc_cmip(logger, args):
     """
 
     logger.info(f"Preprocessing {args.data} data...")
+    logger.info("-" * width)
 
     # parse CLI arguments
     MAKE_CHECK_PLOTS = args.make_check_plots
 
-    META_FILE = CONFIG_PATH / 'meta.yaml'
-    QC_FILE = CONFIG_PATH / 'qc.yaml'
+    META_FILE = CONFIG_PATH.parent / 'meta.yaml'
+    QC_FILE = CONFIG_PATH.parent / 'qc.yaml'
 
     if META_FILE.exists() and QC_FILE.exists():
-        logger.info("    meta.yaml and qc.yaml found. Skipping creation.")
+        logger.info("meta.yaml and qc.yaml found. Skipping creation.")
 
     else:
-        logger.info("    metadata and quality control files not found, creating...")
+        logger.info("metadata and quality control files not found, creating...")
         _make_meta_and_qc(logger, args)
     
-    # stop here to allow for manual checking if desired
-    if not args.bypass_checks:
-        logger.info("    ! Please check the files meta.generated.yaml and qc.generated.yaml before proceeding. Once happy, rename meta.generated.yaml -> meta.yaml and qc.generated.yaml -> qc.yaml and rerun.")
-        return None  # stop here to allow for manual checking of meta.yaml and qc.yaml files before proceeding with land masking and regridding
+        # stop here to allow for manual checking if desired
+        if not args.bypass_checks:
+            logger.info("! BREAK - Please check the files meta.generated.yaml and qc.generated.yaml before proceeding. Once happy, rename meta.generated.yaml -> meta.yaml and qc.generated.yaml -> qc.yaml and rerun.")
+            return None  # stop here to allow for manual checking of meta.yaml and qc.yaml files before proceeding with land masking and regridding
 
     # make CMIP6 model config class (only used for plotting here)
-    CMIPConfig = CMIP6EnsembleConfig.from_yaml(CONFIG_PATH / "meta.yaml", 
-                                               CONFIG_PATH / "qc.yaml")
+    CMIPConfig = CMIP6EnsembleConfig.from_yaml(CONFIG_PATH.parent / "meta.yaml", 
+                                               CONFIG_PATH.parent / "qc.yaml")
 
     # set mask threshold
     MASK_THRES = 0.5  # "standard", according to Rahul Singh :)
@@ -83,13 +84,12 @@ def pproc_cmip(logger, args):
         land_mask = xr.open_dataset(ERA5_PATH / 'era5_land_mask_1deg.nc')
 
     except FileNotFoundError:
-        logger.info("    No regridded land mask found, making a new one...")
+        logger.info("No regridded land mask found, making a new one...")
         make_regridded_land_mask(GRID='1deg')
         land_mask = xr.open_dataset(ERA5_PATH / 'era5_land_mask_1deg.nc')
 
     for var in vars:
-        logger.info("    Regridding and masking ", var, " data...")
-        logger.info('    ' + "=" * width)
+        logger.info(f"Regridding and masking {var} data...")
 
         # make data path
         data_path = CMIP_PATH / var / 'raw'
@@ -130,7 +130,7 @@ def pproc_cmip(logger, args):
             fparts = f.stem.split('_')
             model_name = '_'.join(fparts[2:3])  # hard coded, would have to change if we had diff data
 
-            logger.info("        Working on ", model_name)
+            logger.info(f"    Working on {model_name}...")
             ds = xr.open_dataset(f)
             ds_mean = xr.open_dataset(f_mean)
 
@@ -165,7 +165,7 @@ def pproc_cmip(logger, args):
             ).name  # make name of file with _landonly appended on end
             ds_masked.to_netcdf(land_dir / land_name)  # save to netCDF file
 
-            logger.info(f"        {model_name} land masking done and saved successfully to: {land_dir / land_name}")
+            logger.info(f"    {model_name} land masking done and saved successfully to: {land_dir / land_name}")
 
             # close datasets to save memory
             ds.close()
@@ -185,7 +185,7 @@ def pproc_cmip(logger, args):
                     save_figs=True,
                     filename_args=['tas_landmask_check_' + var + '_' + model_name, 'png', FIGS_PATH / 'checks']
                     )
-                logger.info(f"         Check plot for {model_name} saved.")
+                logger.info(f"     Check plot for {model_name} saved.")
 
 
 def _make_meta_and_qc(logger, args):
@@ -212,8 +212,9 @@ def _make_meta_and_qc(logger, args):
 
     # loop through variables for QC
     for var in vars:
-        logger.info("        Performing QC on {} data...".format(var))
-        logger.info("        " + "-"*width)
+        logger.info("    " + "."*width)
+        logger.info("    Performing QC on {} data...".format(var))
+        logger.info("    " + "."*width)
 
         # set data path, making sure to QC on raw data
         data_path = CMIP_PATH / var / 'raw'
@@ -232,7 +233,7 @@ def _make_meta_and_qc(logger, args):
             fparts = f.stem.split('_')
             model = '_'.join(fparts[2:3])
 
-            logger.info("            Working on {}...".format(model))
+            logger.info("    Working on {}...".format(model))
 
             # open dataset
             ds = xr.open_dataset(f)
@@ -315,7 +316,7 @@ def _make_meta_and_qc(logger, args):
     qcs['models'] = qc
 
     # save dictionaries as .yamls 
-    outpath_meta = Path(CONFIG_PATH / 'meta.yaml') if args.bypass_checks else Path(CONFIG_PATH / 'meta.generated.yaml')
+    outpath_meta = Path(CONFIG_PATH.parent / 'meta.yaml') if args.bypass_checks else Path(CONFIG_PATH.parent / 'meta.generated.yaml')
     with open(outpath_meta, 'w') as f:
         yaml.safe_dump(
             yaml_safe(metas),
@@ -325,7 +326,7 @@ def _make_meta_and_qc(logger, args):
             indent=2
         )
 
-    outpath_qc = Path(CONFIG_PATH / 'qc.yaml') if args.bypass_checks else Path(CONFIG_PATH / 'qc.generated.yaml')
+    outpath_qc = Path(CONFIG_PATH.parent / 'qc.yaml') if args.bypass_checks else Path(CONFIG_PATH.parent / 'qc.generated.yaml')
     with open(outpath_qc, 'w') as f:
         yaml.safe_dump(
             yaml_safe(qcs),

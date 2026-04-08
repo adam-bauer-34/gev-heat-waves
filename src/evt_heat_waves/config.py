@@ -10,7 +10,7 @@ import argparse
 
 from pathlib import Path
 
-CONFIG_PATH = Path(__file__).parent / "config" / "paths.yaml"
+CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "paths.yaml"
 
 with open(CONFIG_PATH, "r") as f:
     CONFIG = yaml.safe_load(f)
@@ -33,7 +33,7 @@ def parse_args_pproc():
     )
 
     parser.add_argument(
-        "--data_type",
+        "--data",
         type=str,
         default="era5",
         choices=['era5', 'cmip', 'amip'],
@@ -62,8 +62,38 @@ def parse_args_pproc():
         help="Bypass manual checking of meta.yaml and qc.yaml files when created for CMIP or AMIP analysis."
     )
 
+    parser.add_argument(
+        "--debug",
+        action='store_true',
+        default=False,
+        help="Whether to run in debug mode (more verbose logging, no parallelization)."
+    )
+
     return parser.parse_args()
 
+def parse_args_bootstrap():
+    """Parse CLI arguments for Kuiper bootstrapping calculation.
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Bootstrapping Kuiper statistics on a synthetic grid."
+    )
+
+    parser.add_argument(
+        "--tmin",
+        type=int,
+        default=1979,
+        help="minimum time of interval analyzed; sets sample size for Kuiper stats; equal to 2024 - tmin"
+    )
+
+    parser.add_argument(
+        "--debug",
+        action='store_true',
+        default=False,
+        help="Whether to run in debug mode (more verbose logging, no parallelization)."
+    )
+
+    return parser.parse_args()
 
 def parse_args_fitting():
     """Parse CLI arguments for GEV fitting.
@@ -85,7 +115,7 @@ def parse_args_fitting():
         "--fit-type",
         type=str,
         default='nonstat',
-        choices=['nonstat', 'stat', 'stat_fixed_xi', 'nonstat_fixed_xi_loc_only']
+        choices=['nonstat', 'stat', 'stat_fixed_xi', 'nonstat_fixed_xi_loc_only'],
         help="The type of GEV fit to perform. Each option holds different parameters constant or assumes (non)stationary in the data"
     )
 
@@ -100,7 +130,7 @@ def check_fitting_config_compatability(args):
     args: argparse.Namespace
         CLI args
     """
-    
+
     # do later if it makes sense
     pass
 

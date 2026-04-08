@@ -6,10 +6,13 @@ Apr 8, 2026
 """
 
 import time
+import shutil
 
 from evt_heat_waves.config import parse_args_pproc
 from evt_heat_waves.logging import setup_logger, get_git_hash
 from evt_heat_waves.pproc import PPROC_REGISTRY
+
+width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 def main():
     """Main function for simulation setup and running.
@@ -24,13 +27,14 @@ def main():
     t0 = time.time()
 
     # print statement for logging and reproducibility
+    logger.info("-" * width)
     logger.info(f"Git hash: {get_git_hash()}")
 
     # run preprocessing for the passed data type
     try:
-        run_pproc = PPROC_REGISTRY[args.data_type]['runner']
+        run_pproc = PPROC_REGISTRY[args.data]['runner']
     except KeyError:
-        raise ValueError(f"Data type {args.data_type} doesn't exist in data registry:\n{PPROC_REGISTRY}")
+        raise ValueError(f"Data type {args.data} doesn't exist in data registry:\n{PPROC_REGISTRY}")
 
     run_pproc(logger, args)
 

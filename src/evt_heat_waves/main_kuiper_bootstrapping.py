@@ -1,76 +1,43 @@
-"""Main file for GEV fitting of ERA5 data.
+"""Main file for bootstrapping Kuiper stats.
 
 Adam Michael Bauer
 UChicago
-11.10.2025
-
-To run: python main_kuiper_bootstrapping.py
-
-Last edited: 2/5/2026, 12:45 AM CST
+Apr 8, 2026
 """
 
-import sys
+import time
+import shutil
 
-import xarray as xr
-import numpy as np
+from evt_heat_waves.logging import setup_logger, get_git_hash
+from evt_heat_waves.config import parse_args_bootstrap
+from evt_heat_waves.kuiper.bootstrap import get_bootstrapped_kuipers
 
-from scipy.stats import genextreme
-from astropy.stats import kuiper
+width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
-from mle_claude import _mle_fit
-from config import DATA_ROOT
+def main():
+    """Main function for simulation setup and running.
+    """
 
+    # parse arguments
+    args = parse_args_bootstrap()
 
-TMIN = sys.argv[1]
-N_YEARS = 2024 - int(TMIN)  # hard coded from number of years in climate model record
+    # setup logging
+    logger = setup_logger(args.debug)
 
-np.random.seed(42)  # set seed for reproducibility
+    t0 = time.time()
 
-print("Computing bootstrapped Kuiper statistics...")
-# now do bootstrapping technique with the same parameters
+    # print statement for logging and reproducibility
+    logger.info("-" * width)
+    logger.info(f"Git hash: {get_git_hash()}")
 
-# number of bootstraps to do
-N_BOOTSTRAP = int(1e3)
+    # run main function
+    get_bootstrapped_kuipers(logger, args)
 
-# set parameters
-shape, loc, scale = (-0.25, 20., 1.5)  # from Cael's original .matlab script
-boot_ks = np.zeros(N_BOOTSTRAP)
+    t1 = time.time()
 
-# for each bootstrapping iteration, do:
-for n in range(N_BOOTSTRAP):
-    # take a sample of GEV distribution values
-    tmp_sample = genextreme.rvs(c=-shape,
-                                loc=loc,
-                                scale=scale,
-                                size=N_YEARS  # hard coded from number of years in climate model record
-                                )
-    
-    # fit a GEV to those data
-    # shape_hat, loc_hat, scale_hat = genextreme.fit(tmp_sample)
-    loc_hat, scale_hat, shape_hat = _mle_fit(tmp_sample, SAMPLE_THRES=10, non_stat=False)
-    # print(f"Fitted params: {shape_hat}, {loc_hat}, {scale_hat}")
+    # log finish
+    logger.info("Bootstrapping calculation complete!")
+    logger.info(f"Total runtime: {t1 - t0:.2f}s.")
 
-    # compute the Kuiper statistic of fitted params -> GEV
-    tmp_k, _ = kuiper(tmp_sample,
-                        lambda x: genextreme.cdf(x,
-                                                -shape_hat, loc_hat, scale_hat))
-    
-    # store
-    boot_ks[n] = tmp_k
-
-# print("Bootstrapped Kuiper statistics complete.")
-
-# make dataset for saving
-ds_boot = xr.Dataset(
-    data_vars={'boot_ks': (['iter'], boot_ks)},
-    coords={'iter': (['iter'], np.arange(0, N_BOOTSTRAP, 1))},
-    attrs={
-        'shape': shape,
-        'loc': loc,
-        'scale': scale,
-    }
-)
-
-filepath = DATA_ROOT / 'stats' / f'bootstrapped_ks_{TMIN}.nc'  # save to general stats data folder
-ds_boot.to_netcdf(filepath)  # save
-print(f'Bootstrapped Kuiper statistics saved to: {filepath}')
+if __name__ == "__main__":
+    main()

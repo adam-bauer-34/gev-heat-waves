@@ -28,20 +28,21 @@ def pproc_era5(logger, args):
         CLI arguments for the experiment
     """
 
+    logger.info("Preprocessing ERA5 data...")
+
     # parse CLI arguments
     GRID = args.grid
     MAKE_CHECK_PLOTS = args.make_check_plots
 
     logger.info('-' * width)
-
-    logger.info("🔎 Importing data...")
+    logger.info("Importing data...")
     # load in full ERA5 data
     vars = ['t2m_annual_max', 't2m_annual_mean', 't2m_annual_min']
     dss = [xr.open_dataset(ERA5_PATH / ('era5_' + var + '_' + GRID + '.nc')) for var in vars]
 
     # COMPUTE ANOMALIES
-    print('-'*width)
-    print("🧮 Computing anomalies with respect to annual mean (removing climate change and interannual variability signal)...")
+    logger.info("Computing anomalies...")
+    logger.info("  - Anoms with respect to annual mean (removing climate change and interannual variability signal)...")
     # 1. compute anomalies relative to annual mean for maximum and minimum datasets
     da_t2m_max_anoms = dss[0]['t2m'] - dss[1]['t2m']  # annual max - annual mean
     da_t2m_min_anoms = dss[2]['t2m'] - dss[1]['t2m']  # annual min - annual mean
@@ -50,8 +51,7 @@ def pproc_era5(logger, args):
     dss[0] = dss[0].assign({'t2m_anom_annmean': da_t2m_max_anoms})
     dss[2] = dss[2].assign({'t2m_anom_annmean': da_t2m_min_anoms})
 
-    print('-' * width)
-    print("🧮 Computing anomalies with respect to trend in annual mean (removing climate change signal)...")
+    logger.info("  - Anoms with respect to trend in annual mean (removing climate change signal)...")
     # 2. compute anomalies relative to *trend* in annual mean temperature
     # do linear regression on annual mean data
     annual_mean_trend = dss[1].polyfit(dim='year',
@@ -69,9 +69,6 @@ def pproc_era5(logger, args):
     # assign to datasets
     dss[0] = dss[0].assign({'t2m_anom_trend': da_t2m_max_anoms_trend})
     dss[2] = dss[2].assign({'t2m_anom_trend': da_t2m_min_anoms_trend})
-
-    print('-'*width)
-    print("✅ Anomalies created successfully.")
 
     # load in land/sea mask
     land_mask = xr.open_dataset(ERA5_PATH / 'era5_land_mask.nc')
@@ -91,14 +88,12 @@ def pproc_era5(logger, args):
         }
     )
 
-    print('-'*width)
-    print("👺 Making regridding object... (this could take a second)")
+    logger.info("Making regridding object... (this could take a second)")
     # initialize the regridder and regrid the land mask
     regridder = xe.Regridder(land_mask, ds_output_grid, 'conservative')
     land_mask_regridded = regridder(land_mask, keep_attrs=True)
 
-    print('-'*width)
-    print("⚒️ Applying land mask to dataset...")
+    logger.info("Applying land mask to dataset...")
     # apply thea land mask to the dataset
     MASK_THRES = 0.5  # threshold for me to consider something "land" in the mask
     ds_maskeds = [ds.where(land_mask_regridded['lsm'].data[0] > MASK_THRES, np.nan) for ds in dss]
@@ -111,15 +106,9 @@ def pproc_era5(logger, args):
     for VAR, ds_masked in zip(vars, ds_maskeds):
         ds_masked.to_netcdf(landonly_dir / ('era5_' + VAR + '_' + GRID + '_landonly.nc'))
 
-    print('-'*width)
-    print("✅ Complete.")
-
-    print('-'*width)
-    print(f'✍️ Saved land-masked datasets to {ERA5_PATH}/landonly')
+    logger.info(f'Saved land-masked datasets to {ERA5_PATH}/landonly')
 
     if MAKE_CHECK_PLOTS:
-        print('-'*width)
-        print("📊 Making check plots...")
         plot_side_by_side(
             land_mask_regridded['lsm'],
             land_mask['lsm'],
@@ -135,5 +124,4 @@ def pproc_era5(logger, args):
                 save_figs=True,
                 filename_args=['era5_t2m_landmask_check_' + VAR + '_' + GRID, 'png', f'{FIGS_PATH}/checks'])
         
-        print('-'*width)
-        print("✅ Check plots are complete.")
+        logger.info("Check plots completed.")

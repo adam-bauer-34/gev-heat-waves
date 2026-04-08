@@ -3,9 +3,9 @@ import numpy as np
 import xarray as xr
 
 from datetime import datetime
-from src.config import DATA_ROOT
 from pathlib import Path
 
+from evt_heat_waves.config import CMIP_PATH
 
 def compute_ecdf(values, extend_lower=True,
                 extend_upper=False, ub=None):
@@ -56,7 +56,7 @@ def check_lat_lon_grids_consistent():
     bool
         True if all grids are identical, False otherwise.
     """
-    data_folder = DATA_ROOT / 'CMIP6' / 'tas_annual_max'
+    data_folder = CMIP_PATH / 'tas_annual_max'
     fnames = list(data_folder.glob("*_landonly.nc"))
     
     if not fnames:

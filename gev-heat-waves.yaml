@@ -9,6 +9,7 @@ dependencies:
   - jupyterlab
   - matplotlib=3.7.0
   - nb_conda_kernels
+  - netcdf4
   - numpy=1.23.5
   - pandas=1.5.3
   - pip
