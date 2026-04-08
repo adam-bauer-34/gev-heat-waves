@@ -10,11 +10,13 @@ import argparse
 
 from pathlib import Path
 
+# unpack config file
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "paths.yaml"
 
 with open(CONFIG_PATH, "r") as f:
     CONFIG = yaml.safe_load(f)
 
+# directories
 DATA_ROOT = Path(CONFIG["DATA_ROOT"])
 
 FIGS_PATH = Path(CONFIG["FIGS_PATH"])
@@ -23,12 +25,21 @@ CMIP_PATH = DATA_ROOT / CONFIG["CMIP_DIR"]
 AMIP_PATH = DATA_ROOT / CONFIG["AMIP_DIR"]
 STATS_PATH = DATA_ROOT / CONFIG["STATS_DIR"]
 
+# mapping for args.fit -> data path
 MIP_FIT_PATH_DICT = {
     'cmip': CMIP_PATH,
     'amip': AMIP_PATH
 }
 
+# MLE characteristics
+MLE_CONFIG_PATH = Path(__file__).parent.parent.parent / 'config' / 'mle_attrs.yaml'
 
+with open(MLE_CONFIG_PATH, 'r') as f:
+    MLE_ATTRS = yaml.safe_load(f)
+
+MLE_FIT_ATTRS = MLE_ATTRS['fit']
+
+# CLI parsing
 def parse_args_pproc():
     """Parse CLI arguments for preprocessing.
     """

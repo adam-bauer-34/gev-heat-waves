@@ -21,18 +21,17 @@ import numpy as np
 import xarray as xr
 
 from scipy.optimize import minimize
+from evt_heat_waves.config import MLE_FIT_ATTRS
+from evt_heat_waves.mle.utils import get_bounds, get_constraints
 
 
-def ds_mle_fit(logger, args,
+def ds_mle_fit(args,
                ds, var_name, fit_dim='year', non_stat=False, all_mems=False, parallel=True):
     """Fit (potentially nonstationary) GEV distribution to each (lat, lon) pair
     of an xarray Dataset via maximum likelihood estimation.
 
     Parameters
     ----------
-    logger: logging.Logger
-        logging object
-
     args: argparse.Namespace
         CLI arguments, this needs:
             - args.fit
@@ -61,11 +60,6 @@ def ds_mle_fit(logger, args,
     # subselect variable to do the fitting over
     da = ds[var_name]
 
-    if non_stat:
-        N_param_dims = 6
-    else:
-        N_param_dims = 3
-
     # carry out either parallelized or non-parallelized fit
     if parallel:
         gev_params = xr.apply_ufunc(
@@ -78,7 +72,7 @@ def ds_mle_fit(logger, args,
             dask='parallelized',
             output_dtypes=[float],
             dask_gufunc_kwargs={
-                'output_sizes': {'gev_params' : N_param_dims}
+                'output_sizes': {'gev_params' : MLE_FIT_ATTRS[args.fit]['N_params']}
             }
         )
 
@@ -93,107 +87,19 @@ def ds_mle_fit(logger, args,
             dask='parallelized',
             output_dtypes=[float],
             dask_gufunc_kwargs={
-                'output_sizes': {'gev_params' : N_param_dims}
+                'output_sizes': {'gev_params' : MLE_FIT_ATTRS[args.fit]['N_params']}
             }
         )
 
-    if non_stat and not all_mems:
-        # assign shape, loc, and scale parameters to their (lat, lon) coords
-        if var_name == 't2m' or var_name == 'tas':
-            # assign shape, loc, and scale parameters to their (lat, lon) coords
-            ds = ds.assign(loc_raw = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(loc_t_raw = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(scale_raw = (('lat', 'lon'), gev_params.data[:, :, 2]))
-            ds = ds.assign(scale_t_raw = (('lat', 'lon'), gev_params.data[:, :, 3]))
-            ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 4]))
-            ds = ds.assign(shape_t_raw = (('lat', 'lon'), gev_params.data[:, :, 5]))
+    gev_se = gev_params.copy()  # in prog
 
-        elif var_name == 't2m_anom_annmean':
-            # assign shape, loc, and scale parameters to their (lat, lon) coords
-            ds = ds.assign(loc_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(loc_t_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(scale_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 2]))
-            ds = ds.assign(scale_t_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 3]))
-            ds = ds.assign(shape_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 4]))
-            ds = ds.assign(shape_t_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 5]))
-
-        elif var_name == 't2m_anom_trend':
-            # assign shape, loc, and scale parameters to their (lat, lon) coords
-            ds = ds.assign(loc_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(loc_t_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(scale_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 2]))
-            ds = ds.assign(scale_t_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 3]))
-            ds = ds.assign(shape_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 4]))
-            ds = ds.assign(shape_t_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 5]))
-
-    elif not non_stat and not all_mems:
-        if var_name == 't2m' or var_name == 'tas':
-            ds = ds.assign(loc_raw = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(scale_raw = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(shape_raw = (('lat', 'lon'), gev_params.data[:, :, 2]))
-
-        elif var_name == 't2m_anom_annmean':
-            ds = ds.assign(loc_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(scale_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(shape_anom_annmean = (('lat', 'lon'), gev_params.data[:, :, 2]))
-
-        elif var_name == 't2m_anom_trend':
-            ds = ds.assign(loc_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 0]))
-            ds = ds.assign(scale_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 1]))
-            ds = ds.assign(shape_anom_trend = (('lat', 'lon'), gev_params.data[:, :, 2]))
-
-    # since we fit over all ensemble members, we need another : compared to the above
-    # because MLE fitting output has an additional dimension
-    # (mem, lat, lon, param) instead of (lat, lon, param)
-    elif non_stat and all_mems:
-        # assign shape, loc, and scale parameters to their (lat, lon) coords
-        if var_name == 't2m' or var_name == 'tas':
-            # assign shape, loc, and scale parameters to their (lat, lon) coords
-            ds = ds.assign(loc_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
-            ds = ds.assign(loc_t_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
-            ds = ds.assign(scale_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
-            ds = ds.assign(scale_t_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 3]))
-            ds = ds.assign(shape_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 4]))
-            ds = ds.assign(shape_t_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 5]))
-
-        elif var_name == 't2m_anom_annmean':
-            # assign shape, loc, and scale parameters to their (lat, lon) coords
-            ds = ds.assign(loc_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
-            ds = ds.assign(loc_t_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
-            ds = ds.assign(scale_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
-            ds = ds.assign(scale_t_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 3]))
-            ds = ds.assign(shape_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 4]))
-            ds = ds.assign(shape_t_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 5]))
-
-        elif var_name == 't2m_anom_trend':
-            # assign shape, loc, and scale parameters to their (lat, lon) coords
-            ds = ds.assign(loc_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
-            ds = ds.assign(loc_t_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
-            ds = ds.assign(scale_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
-            ds = ds.assign(scale_t_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 3]))
-            ds = ds.assign(shape_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 4]))
-            ds = ds.assign(shape_t_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 5]))
-
-    elif not non_stat and all_mems:
-        if var_name == 't2m' or var_name == 'tas':
-            ds = ds.assign(loc_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
-            ds = ds.assign(scale_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
-            ds = ds.assign(shape_raw = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
-
-        elif var_name == 't2m_anom_annmean':
-            ds = ds.assign(loc_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
-            ds = ds.assign(scale_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
-            ds = ds.assign(shape_anom_annmean = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
-
-        elif var_name == 't2m_anom_trend':
-            ds = ds.assign(loc_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 0]))
-            ds = ds.assign(scale_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 1]))
-            ds = ds.assign(shape_anom_trend = (('member_id', 'lat', 'lon'), gev_params.data[:, :, :, 2]))
+    # assign parameter names
+    ds = _assign_params(args, ds, var_name, gev_params, gev_se, all_mems)
 
     # return the amended dataset
     return ds
 
-def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
+def _mle_fit(data, fit_type='stat', SAMPLE_THRES=10):
     """Fit a potentiallly nonstationary GEV distribution to data via MLE.
     """
 
@@ -209,10 +115,7 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
     # if the number of points is less than the sample threshold,
     # return NaNs for the fitted parameters
     if len(data) < SAMPLE_THRES:
-        if non_stat:
-            return np.array([np.nan] * 6)
-        else:
-            return np.array([np.nan] * 3)
+        return np.array([np.nan] * MLE_FIT_ATTRS[fit_type]['N_params'])
     
     # try to do the GEV distribution fit and return parameters
     # tune initial guess based on the moments of the samples
@@ -229,30 +132,12 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
                      shape_guess, 0.0  # shape parameters
     ]
 
-    # set up constraints for MLE fit for nonstationary or stationary cases
-    # nonstationary just requires the scale parameter to be positive for all time
-    ## turns out, this requires two constraints: scale_0 >= 0 and scale_0 + scale_1 * T >= 0
-    # stationary sets the trend in parameters to zero, and keeps the scale parameter positive
-    if non_stat:
-        cons = ({'type': 'ineq',
-                 'fun': lambda x: x[2] + x[3]}  # scale_0 + scale_1 * time >= 0
-                 )
+    # set up constraints and bounds for MLE fit for fit type
+    cons = get_constraints(fit_type)
+    bounds = get_bounds(fit_type)
 
-    else:
-        cons = ({'type': 'eq',
-                 'fun': lambda x: x[1]},  # loc_1 = 0 (no trend)
-                {'type': 'eq',
-                 'fun': lambda x: x[3]},  # scale_1 = 0 (no trend)
-                {'type': 'eq',
-                 'fun': lambda x: x[5]})  # shape_1 = 0 (no trend)
-
-    bounds = ((None, None),
-            (None, None),
-            (0.0, None),  # sigma >= 0 (this bound + inequality constraint above ensures \sigma_t >= for all t when fit is nonstationary)
-            (None, None),
-            (-1, 1),  # bar{xi} can't be too big or MLE is unstable
-            (-1, 1))  # xi' can't be too big for same reason
-        
+    # LEFT OFF HERE 4/8/2026    
+    
     # do MLE fit
     fit = minimize(_negative_log_likelihood,
                     initial_guess,
@@ -265,22 +150,18 @@ def _mle_fit(data, non_stat=False, SAMPLE_THRES=10):
 
     # if the fit is successful, return parameters, else return nans
     if fit.success:
-        # print("MLE fit successful.")
         _mle_fit.success_count += 1
         total = _mle_fit.success_count + _mle_fit.fail_count
         success_rate = _mle_fit.success_count / total
-        # print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
         if non_stat:
             return np.array(fit.x)  # return all 6 parameters
         else:
             return np.array([fit.x[0], fit.x[2], fit.x[4]])  # loc_0, scale_0, shape_0
     
     else:
-        #print("WARNING: MLE fit failed: {}".format(fit.message))
         _mle_fit.fail_count += 1
         total = _mle_fit.success_count + _mle_fit.fail_count
         success_rate = _mle_fit.success_count / total
-        # print(f"\r  ↳ MLE Success rate: {_mle_fit.success_count}/{total} ({success_rate:.1%})", end='', flush=True)
         if non_stat:
             return np.array([np.nan] * 6)  # return nans for failed fit
         else:
@@ -412,328 +293,42 @@ def _gev_pdf(x, loc, scale, shape,
         pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
         return pdf
     
-def _grad_negative_log_likelihood(params, data, non_stat=False):
-    """Analytic gradients of the negative log-likelihood function.
+
+def _assign_params(args, ds, var_name, gev_params, gev_se, all_mems):
+    """Assign fitted GEV parameters and their standard errors to the dataset.
+
+    Resolves the spatial dimensions and variable name suffix from the calling
+    context, then loops over the parameter list to assign each array and its
+    corresponding SE in one place rather than repeating ds.assign() calls for
+    every (var_name, non_stat, all_mems) combination.
     """
 
-    grad = np.zeros_like(params)
+    # spatial dims depend on whether we're fitting across ensemble members
+    spatial_dims = ('member_id', 'lat', 'lon') if all_mems else ('lat', 'lon')
 
-    if non_stat:
-        loc_0, loc_1, scale_0, scale_1, shape_0, shape_1 = params
-    else:
-        loc_0, loc_1, scale_0, scale_1, shape_0, shape_1 = params
-        loc_1 = scale_1 = shape_1 = 0
+    # map variable name to the suffix used in dataset variable names
+    suffix_map = {
+        't2m':             'raw',
+        'tas':             'raw',
+        't2m_anom_annmean':'anom_annmean',
+        't2m_anom_trend':  'anom_trend',
+    }
+    sfx = suffix_map.get(var_name, var_name)
 
-    time = np.arange(0, len(data), 1) / len(data)  # normalized time variable
-
-    # compute the gradient of each stationary component
-    grad[0] = np.sum(
-        [
-            _gev_negloglik_grad_loc0(x=x,
-                                    loc_0=loc_0,
-                                    loc_1=loc_1,
-                                    scale_0=scale_0,
-                                    scale_1=scale_1,
-                                    shape_0=shape_0,
-                                    shape_1=shape_1,
-                                    time=t) for x, t in zip(data, time)
-        ]
-    )
-    
-    grad[2] = np.sum(
-        [
-            _gev_negloglik_grad_scale0(x=x,
-                                      loc_0=loc_0,
-                                      loc_1=loc_1,
-                                      scale_0=scale_0,
-                                      scale_1=scale_1,
-                                      shape_0=shape_0,
-                                      shape_1=shape_1,
-                                      time=t) for x, t in zip(data, time)
-        ]
-    )
-
-    grad[4] = np.sum(
-        [
-            _gev_negloglik_grad_shape0(x=x,
-                                       loc_0=loc_0,
-                                       loc_1=loc_1,
-                                       scale_0=scale_0,
-                                       scale_1=scale_1,
-                                       shape_0=shape_0,
-                                       shape_1=shape_1,
-                                       time=t) for x, t in zip(data, time)
-        ]
-    )
-    
-    # if nonstationry, compute the gradient for each trend bit
-    if non_stat:
-        grad[1] = np.sum(
-            [
-                _gev_negloglik_grad_loc1(x=x,
-                                         loc_0=loc_0,
-                                         loc_1=loc_1,
-                                         scale_0=scale_0,
-                                         scale_1=scale_1,
-                                         shape_0=shape_0,
-                                         shape_1=shape_1,
-                                         time=t) for x, t in zip(data, time)
-            ]
+    # look up param names from global config
+    if args.fit not in MLE_FIT_ATTRS:
+        raise ValueError(
+            f"Unknown fit_type {args.fit}. "
+            f"Expected one of: {list(MLE_FIT_ATTRS)}"
         )
-        
-        grad[3] = np.sum(
-            [
-                _gev_negloglik_grad_scale1(x=x,
-                                           loc_0=loc_0,
-                                           loc_1=loc_1,
-                                           scale_0=scale_0,
-                                           scale_1=scale_1,
-                                           shape_0=shape_0,
-                                           shape_1=shape_1,
-                                           time=t) for x, t in zip(data, time)
-            ]
-        )
-        
-        grad[5] = np.sum(
-            [
-                _gev_negloglik_grad_shape1(x=x,
-                                           loc_0=loc_0,
-                                           loc_1=loc_1,
-                                           scale_0=scale_0,
-                                           scale_1=scale_1,
-                                           shape_0=shape_0,
-                                           shape_1=shape_1,
-                                           time=t) for x, t in zip(data, time)
-            ]
-        )
+    param_names = [f'{p}_{sfx}' for p in MLE_FIT_ATTRS[args.fit]['param_names']]
 
-    return grad
+    # assign each parameter and its SE to the dataset
+    for i, pname in enumerate(param_names):
+        ds = ds.assign({pname:         (spatial_dims, gev_params.data[..., i])})
+        ds = ds.assign({f'se_{pname}': (spatial_dims, gev_se.data[..., i])})
 
-def _gev_negloglik_grad_loc0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Gradient of negative log-likelihood with respect to loc_0.
-    Placeholder implementation that returns zeros of the same shape as x.
-    """
-
-    loc = loc_0 + loc_1 * time
-    scale = scale_0 + scale_1 * time
-    shape = shape_0 + shape_1 * time
-
-    if shape > 0:
-        support_lb = loc - scale / shape
-        if x < support_lb:
-            return 0.0  # grad = 0 for unsupported values
-        else:
-            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-            dtx_dloc = _dhepler_dloc(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-
-            piece1 = (1 + 1 / shape) * dtx_dloc / tx
-            piece2 = - tx**(-1 - 1/shape) * dtx_dloc / shape
-
-            return piece1 + piece2
-        
-    elif shape < 0:
-        support_ub = loc - scale / shape
-        if x > support_ub:
-            return 0.0  # grad = 0 for unsupported values
-            
-        else:
-            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-            dtx_dloc = _dhepler_dloc(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-
-            piece1 = (1 + 1 / shape) * dtx_dloc / tx
-            piece2 = - tx**(-1 - 1/shape) * dtx_dloc / shape
-
-            return piece1 + piece2
-    
-    ## NOT FUNCTIONAL YET -- WILL ADD SPECIAL CASE FOR GUMBEL DISTRIBUTION LATER
-    else:
-        s = (x - loc) / scale  # standardized variable
-
-        if shape == 0:
-            t_x = np.exp(-s)  # transformation for Gumbel case
-        else:
-            t_x = (1 + shape * s)**(-1 / shape)  # transformation (assuming scale !=0)
-
-        # eval PDF
-        pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
-        return pdf
-
-
-def _gev_negloglik_grad_loc1(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Gradient of negative log-likelihood with respect to loc_1 (trend).
-    Placeholder implementation that returns zeros of the same shape as x.
-    """
-    return time * _gev_negloglik_grad_loc0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-
-
-def _gev_negloglik_grad_scale0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Gradient of negative log-likelihood with respect to scale_0.
-    Placeholder implementation that returns zeros of the same shape as x.
-    """
-
-    loc = loc_0 + loc_1 * time
-    scale = scale_0 + scale_1 * time
-    shape = shape_0 + shape_1 * time
-
-    if shape > 0:
-        support_lb = loc - scale / shape
-        if x < support_lb:
-            return 0.0  # grad = 0 for unsupported values
-        else:
-            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-            dtx_dscale = _dhepler_dscale(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-
-            piece1 = 1 / scale
-            piece2 = (1 + 1 / shape) * dtx_dscale / tx
-            piece3 = - tx**(-1 - 1/shape) * dtx_dscale / shape
-
-            return piece1 + piece2 + piece3
-        
-    elif shape < 0:
-        support_ub = loc - scale / shape
-        if x > support_ub:
-            return 0.0  # grad = 0 for unsupported values
-            
-        else:
-            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-            dtx_dscale = _dhepler_dscale(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-
-            piece1 = 1 / scale
-            piece2 = (1 + 1 / shape) * dtx_dscale / tx
-            piece3 = - tx**(-1 - 1/shape) * dtx_dscale / shape
-
-            return piece1 + piece2 + piece3
-    
-    ## NOT FUNCTIONAL YET -- WILL ADD SPECIAL CASE FOR GUMBEL DISTRIBUTION LATER
-    else:
-        s = (x - loc) / scale  # standardized variable
-
-        if shape == 0:
-            t_x = np.exp(-s)  # transformation for Gumbel case
-        else:
-            t_x = (1 + shape * s)**(-1 / shape)  # transformation (assuming scale !=0)
-
-        # eval PDF
-        pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
-        return pdf
-
-
-def _gev_negloglik_grad_scale1(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Gradient of negative log-likelihood with respect to scale_1 (trend).
-    Placeholder implementation that returns zeros of the same shape as x.
-    """
-    return time * _gev_negloglik_grad_scale0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-
-
-def _gev_negloglik_grad_shape0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Gradient of negative log-likelihood with respect to shape_0.
-    Placeholder implementation that returns zeros of the same shape as x.
-    """
-    loc = loc_0 + loc_1 * time
-    scale = scale_0 + scale_1 * time
-    shape = shape_0 + shape_1 * time
-
-
-    if shape > 0:
-        support_lb = loc - scale / shape
-        if x < support_lb:
-            return 0.0  # grad = 0 for unsupported values
-        
-        else:
-            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-            dtx_dshape = _dhepler_dshape(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-
-            piece1 = (-1/shape**2) * np.log(tx)
-            piece2 = (1 + 1/shape) * dtx_dshape / tx
-            piece3 = tx**(-1/shape) * (
-                (1/shape**2) * np.log(tx) - dtx_dshape / (shape * tx)
-            )
-
-            return piece1 + piece2 + piece3
-        
-    elif shape < 0:
-        support_ub = loc - scale / shape
-        if x > support_ub:
-            return 0.0  # grad = 0 for unsupported values
-        
-        else:
-            tx = _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-            dtx_dshape = _dhepler_dshape(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-
-            piece1 = (-1/shape**2) * np.log(tx)
-            piece2 = (1 + 1/shape) * dtx_dshape / tx
-            piece3 = tx**(-1/shape) * (
-                (1/shape**2) * np.log(tx) - dtx_dshape / (shape * tx)
-            )
-
-            return piece1 + piece2 + piece3
-    
-    ## NOT FUNCTIONAL YET -- WILL ADD SPECIAL CASE FOR GUMBEL DISTRIBUTION LATER
-    else:
-        s = (x - loc) / scale  # standardized variable
-
-        if shape == 0:
-            t_x = np.exp(-s)  # transformation for Gumbel case
-        else:
-            t_x = (1 + shape * s)**(-1 / shape)  # transformation (assuming scale !=0)
-
-        # eval PDF
-        pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
-        return pdf
-
-
-def _gev_negloglik_grad_shape1(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Gradient of negative log-likelihood with respect to shape_1 (trend).
-    Placeholder implementation that returns zeros of the same shape as x.
-    """
-    return time * _gev_negloglik_grad_shape0(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time)
-
-
-def _helper(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Helper function to compute standardized variable and transformation.
-    """
-
-    loc = loc_0 + loc_1 * time
-    scale = scale_0 + scale_1 * time
-    shape = shape_0 + shape_1 * time
-
-    tx = 1 + shape * (x - loc) / scale
-    return tx
-
-
-def _dhepler_dloc(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Helper function to compute derivative of standardized variable transformation
-    with respect to loc parameter.
-    """
-    scale = scale_0 + scale_1 * time
-    shape = shape_0 + shape_1 * time
-
-    dtx_dloc = -shape / scale
-    return dtx_dloc
-
-
-def _dhepler_dscale(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Helper function to compute derivative of standardized variable transformation
-    with respect to scale parameter.
-    """
-    loc = loc_0 + loc_1 * time
-    scale = scale_0 + scale_1 * time
-    shape = shape_0 + shape_1 * time
-
-    dtx_dscale = -shape * (x - loc) / (scale**2)
-    return dtx_dscale
-
-
-def _dhepler_dshape(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
-    """Helper function to compute derivative of standardized variable transformation
-    with respect to shape parameter.
-    """
-    loc = loc_0 + loc_1 * time
-    scale = scale_0 + scale_1 * time
-    shape = shape_0 + shape_1 * time
-
-    dtx_dshape = (x - loc) / scale
-    return dtx_dshape
+    return ds
 
 
 # test cases
