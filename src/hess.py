@@ -538,7 +538,6 @@ if __name__ == "__main__":
     import shutil
     width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
-    import pandas as pd
     from scipy.stats import genextreme
     from mle import _mle_fit
     import time
@@ -565,6 +564,142 @@ if __name__ == "__main__":
         print(f"[STAT] Hessian with sample size {ss}: {hess}")
         print(f"[STAT] Standard errors with sample size {ss}: {se}")
 
+    # testing incorporation into xarray framework
+    import xarray as xr
+
+    lat = np.array([0, 10])
+    lon = np.array([180, 270])
+    year = np.arange(1979, 2025, 1)
+
+    t2m = np.zeros((len(year), len(lat), len(lon)))
+
+    for i in range(len(lon)):
+        for j in range(len(lat)):
+            t2m[:, j, i] = genextreme.rvs(c=-0.1, loc=2, scale=1, size=len(year))
+
+    # create a dummy dataset
+    ds = xr.Dataset(
+        data_vars={
+            't2m': (['year', 'lat', 'lon'], t2m)
+        },
+        coords={
+            'year': (['year'], year),
+            'lat': (['lat'], lat),
+            'lon': (['lon'], lon)
+        }
+    )
+
+    da = ds['t2m']
+
+    non_stat = False
+    fit_type = 'stat'
+
+    # apply the MLE fit
+    gev_params = xr.apply_ufunc(
+        _mle_fit,
+        da,
+        non_stat,
+        input_core_dims=[['year'], []],
+        output_core_dims=[['gev_params']],
+        vectorize=True,
+        dask='parallelized',
+        output_dtypes=[float],
+        dask_gufunc_kwargs={
+            'output_sizes': {'gev_params' : 3}
+        }
+    )
+
+    gev_params = gev_params.assign_coords(gev_params=['loc', 'scale', 'shape'])
+
+    se = xr.apply_ufunc(
+        get_standard_errors,
+        gev_params,  # (lat, lon, param)
+        da,          # (lat, lon, year)
+        kwargs={
+            'fit_type': fit_type 
+        },
+        input_core_dims=[['gev_params'], ['year']],
+        output_core_dims=[['gev_params']],
+        vectorize=True,
+        dask='parallelized',
+        output_dtypes=[float],
+        dask_gufunc_kwargs={
+            'output_sizes': {'gev_params': 3 if not non_stat else 6}
+        }
+    )
+    print(f"[STAT] Standard errors from xarray apply_ufunc:\n{se}")
+
+
+    print("=" * width)
+    print("STARTING NONSTAT TESTS")
+    print("=" * width)
+    
+    # single point
     non_stat_hess = _get_hessian_nonstat([1, 1, 0.5, 0.5, -0.05, -0.05],
                                          np.array([5.]), testing=True)
     print(f"[NONSTAT] Hessian with single data point: {non_stat_hess}")
+
+    # apply ufunc
+    t2m = np.zeros((len(year), len(lat), len(lon)))
+
+    params_nonstat = [1.0, 0.01, 1.0, 0.02, 0.1, 0.001]
+    years_norm = np.arange(0, len(year), 1) / len(year)
+
+    for i in range(len(lon)):
+        for j in range(len(lat)):
+            t2m[:, j, i] = np.array([genextreme.rvs(
+                                        c=-(params_nonstat[4] + params_nonstat[5] * t),
+                                        loc=(params_nonstat[0] + params_nonstat[1] * t),
+                                        scale=(params_nonstat[2] + params_nonstat[3] * t), size=1)[0] for t in years_norm])
+
+    # create a dummy dataset
+    ds = xr.Dataset(
+        data_vars={
+            't2m': (['year', 'lat', 'lon'], t2m)
+        },
+        coords={
+            'year': (['year'], year),
+            'lat': (['lat'], lat),
+            'lon': (['lon'], lon)
+        }
+    )
+
+    da = ds['t2m']
+
+    non_stat = True
+    fit_type = 'nonstat'
+
+    # apply the MLE fit
+    gev_params = xr.apply_ufunc(
+        _mle_fit,
+        da,
+        non_stat,
+        input_core_dims=[['year'], []],
+        output_core_dims=[['gev_params']],
+        vectorize=True,
+        dask='parallelized',
+        output_dtypes=[float],
+        dask_gufunc_kwargs={
+            'output_sizes': {'gev_params' : 6}
+        }
+    )
+
+    gev_params = gev_params.assign_coords(gev_params=['loc', 'loc_t', 'scale', 'scale_t', 'shape', 'shape_t'])
+
+    se = xr.apply_ufunc(
+        get_standard_errors,
+        gev_params,  # (lat, lon, param)
+        da,          # (lat, lon, year)
+        kwargs={
+            'fit_type': fit_type 
+        },
+        input_core_dims=[['gev_params'], ['year']],
+        output_core_dims=[['gev_params']],
+        vectorize=True,
+        dask='parallelized',
+        output_dtypes=[float],
+        dask_gufunc_kwargs={
+            'output_sizes': {'gev_params': 6 if non_stat else 3}
+        }
+    )
+    print(f"[NONSTAT] Standard errors from xarray apply_ufunc:\n{se}")

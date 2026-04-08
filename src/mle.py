@@ -306,6 +306,7 @@ def _negative_log_likelihood(params, data, non_stat=False):
 
     time = np.arange(0, len(data), 1) / len(data)  # normalized time variable
 
+    # get the log likelihood
     log_likelihood = - np.sum(
         np.log([_gev_pdf(x=x,
                       loc=loc_0 + loc_1 * t,
