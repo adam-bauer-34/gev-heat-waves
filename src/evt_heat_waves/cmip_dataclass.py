@@ -13,6 +13,8 @@ Last edited: 1/28/2026, 1:19 PM CST
 
 from dataclasses import dataclass, field
 from typing import List, Dict, Iterator
+from pathlib import Path
+
 import yaml, warnings
 
 
@@ -70,7 +72,7 @@ class CMIP6EnsembleConfig:
                           Dict[str, ModelVariable]] = field(default_factory=dict)
 
     @classmethod
-    def from_yaml(cls, ensemble_config_path: str, variable_config_path: str) -> 'CMIP6EnsembleConfig':
+    def from_yaml(cls, ensemble_config_path: str | Path, variable_config_path: str | Path) -> 'CMIP6EnsembleConfig':
         """Create a CMIP6EnsembleConfig from a pair of .yaml files.
 
         Parameters

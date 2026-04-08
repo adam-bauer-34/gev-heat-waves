@@ -1,4 +1,8 @@
-"""Check plot codes.
+"""Check plots.
+
+Adam Bauer
+UChicago
+Apr 8, 2026
 """
 
 import matplotlib.pyplot as plt
@@ -7,7 +11,7 @@ import cartopy.feature as cfeature
 
 # import custom plotting stuff
 from ambpy.plotutils import make_figure_filename
-# plt.style.use('ambpy')
+
 
 def plot_side_by_side(data, data2, titles=("Dataset 1", "Dataset 2"),
                       save_figs=False,
