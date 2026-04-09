@@ -78,3 +78,42 @@ def _make_constraint(descriptor, param_names):
         return {'type': ctype, 'fun': lambda x, i=idx: x[i[0]] + x[i[1]]}
 
     raise ValueError(f"Unknown constraint fn: {fn_name!r}")
+
+def get_initial_guess(data):
+    """Get an initial guess for the MLE optimization using the moments of the data.
+
+    Parameters
+    ----------
+    data: (N_years,) array-like
+        temperature data
+    
+    Returns
+    -------
+    init_guess: (6,) array-like
+        initial guess for the MLE optimization
+    """
+    EULER_CONST = 0.5772156649
+
+    # tune initial guess based on the moments of the samples
+    samp_mean = np.mean(data)
+    samp_std = np.std(data)
+
+    scale_guess = samp_std * np.sqrt(6) / np.pi  # initial guess for scale
+    loc_guess = samp_mean + scale_guess * EULER_CONST  # initial guess for loc
+    shape_guess = -0.1  # initial guess for shape
+
+    guess_map = {
+        'loc': loc_guess,
+        'loc_t': 0.0,
+        'scale': scale_guess,
+        'scale_t': 0.0,
+        'shape': shape_guess,
+        'shape_t': 0.0
+    }
+
+    # validate no params have crept into MLE_FULL_PARAM_NAMES without a guess
+    missing = [p for p in MLE_FULL_PARAM_NAMES if p not in guess_map]
+    if missing:
+        raise ValueError(f"No initial guess defined for params: {missing}")
+
+    return [guess_map[p] for p in MLE_FULL_PARAM_NAMES]

@@ -22,7 +22,7 @@ import xarray as xr
 
 from scipy.optimize import minimize
 from evt_heat_waves.config import MLE_FIT_ATTRS, MLE_FULL_PARAM_NAMES
-from evt_heat_waves.mle.utils import get_bounds, get_constraints
+from evt_heat_waves.mle.utils import get_bounds, get_constraints, get_initial_guess
 from evt_heat_waves.mle.grad import grad_negative_log_likelihood
 from evt_heat_waves.mle.se import get_standard_errors
 
@@ -132,22 +132,8 @@ def _mle_fit(data, fit_type='stat', SAMPLE_THRES=10):
     if len(data) < SAMPLE_THRES:
         return np.array([np.nan] * MLE_FIT_ATTRS[fit_type]['N_params'])
     
-    # try to do the GEV distribution fit and return parameters
-    # tune initial guess based on the moments of the samples
-    samp_mean = np.mean(data)
-    samp_std = np.std(data)
-    EULER_CONST = 0.5772156649
-
-    scale_guess = samp_std * np.sqrt(6) / np.pi  # initial guess for scale
-    loc_guess = samp_mean + scale_guess * EULER_CONST  # initial guess for loc
-    shape_guess = -0.5  # initial guess for shape
-
-    initial_guess = [loc_guess, 0.0,  # loc parameters
-                     scale_guess, 0.0,  # scale parameters
-                     shape_guess, 0.0  # shape parameters
-    ]
-
-    # set up constraints and bounds for MLE fit for fit type
+    # set up initial guess, constraints, and bounds for MLE fit for fit type
+    initial_guess = get_initial_guess(data)
     cons = get_constraints(fit_type)
     bounds = get_bounds(fit_type)
 
