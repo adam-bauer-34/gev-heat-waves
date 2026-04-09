@@ -1,8 +1,8 @@
-"""Function bank for serial (non-MPI) GEV fitting to CMIP data.
+"""Function bank for serial (loop-based) GEV fitting to CMIP data.
 
 Adam Michael Bauer
 UChicago
-Apr 8 2026
+Apr 2026
 """
 
 import os
@@ -11,7 +11,7 @@ import time
 
 import xarray as xr
 
-from evt_heat_waves.config import MIP_FIT_PATH_DICT, CONFIG_PATH
+from evt_heat_waves.config import MIP_FIT_PATH_DICT, ANOM_TYPE_TO_VAR
 from evt_heat_waves.cmip_dataclass import CMIP6EnsembleConfig
 from evt_heat_waves.utils import extract_model_name
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
@@ -20,88 +20,83 @@ width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 
 def runner(logger, args):
-    """Serial runner for GEV fitting of CMIP data.
-
-    Parameters
-    ----------
-    logger: logging.Logger
-        logger object
-    
-    args: argparse.Namespace
-        CLI arguments for fit details
-    """
+    """Serial runner using explicit loops (no task abstraction)."""
 
     start_time = time.time()
-    logger.info("Starting SERIAL processing (no MPI)")
+    logger.info("Starting SERIAL processing (loop-based)")
 
-    # Setup CMIP config object
+    # ---- Paths ----
+    try:
+        head_data_path = MIP_FIT_PATH_DICT[args.data]['data']
+        config_meta_path = MIP_FIT_PATH_DICT[args.data]['config']['meta']
+        config_qc_path = MIP_FIT_PATH_DICT[args.data]['config']['qc']
+    except Exception as e:
+        raise KeyError(f"Error in data config for GEV fitting: {str(e)}")
+
+    # ---- Config ----
     CMIPConfig = CMIP6EnsembleConfig.from_yaml(
-        CONFIG_PATH.parent / "meta.yaml",
-        CONFIG_PATH.parent / "qc.yaml"
+        config_meta_path,
+        config_qc_path
     )
 
-    # Define variables and fit types
     vars = ['tas_annual_max', 'tas_annual_min']
     anom_types = ['raw', 'annmean', 'trend']
 
-    all_tasks = []
+    results = []
 
-    # Build task list
+    # ---- MAIN LOOPS ----
     for var in vars:
-        logger.info(f"Setting up tasks for: {var}")
+        logger.info("=" * width)
+        logger.info(f"VARIABLE: {var}")
 
-        os.makedirs(MIP_FIT_PATH_DICT[args.data] / var / 'gev', exist_ok=True)
-        data_path = MIP_FIT_PATH_DICT[args.data] / var / 'landonly'
+        gev_dir = head_data_path / var / 'gev'
+        os.makedirs(gev_dir, exist_ok=True)
 
+        data_path = head_data_path / var / 'landonly'
+
+        # Keep this mapping (important)
         fnames = [f for f in data_path.glob("*_landonly.nc")]
         modelname_filepath_matcher = {
             extract_model_name(f): f for f in fnames
         }
 
         for m in CMIPConfig.iter_active_models(var):
+
+            if m.name not in modelname_filepath_matcher:
+                logger.warning(f"No file found for model: {m.name}")
+                continue
+
+            fpath = modelname_filepath_matcher[m.name]
+
             for anom_type in anom_types:
-                all_tasks.append({
-                    'var': var,
-                    'anom_type': anom_type,
-                    'model': m,
-                    'filepath_matcher': modelname_filepath_matcher,
-                })
+                logger.info("-" * width)
+                logger.info(f"{var}:{m.name}:{anom_type}")
 
-    logger.info(f"Total tasks to process: {len(all_tasks)}")
+                result = process_single_fit(
+                    logger=logger,
+                    args=args,
+                    var=var,
+                    anom_type=anom_type,
+                    m=m,
+                    fpath=fpath,
+                )
 
-    # Process tasks sequentially
-    results = []
+                results.append(result)
 
-    for i, task in enumerate(all_tasks):
-        logger.info(
-            f"Processing task {i+1}/{len(all_tasks)}: "
-            f"{task['var']}:{task['model'].name}:{task['anom_type']}"
-        )
-
-        result = process_single_fit(
-            logger=logger,
-            args=args,
-            var=task['var'],
-            anom_type=task['anom_type'],
-            m=task['model'],
-            modelname_filepath_matcher=task['filepath_matcher'],
-        )
-
-        results.append(result)
-
-    # ---- Summary ----
+    # ---- SUMMARY ----
     successes = sum(1 for r in results if r[0])
     failures = sum(1 for r in results if not r[0])
 
-    fit_type_counts = {}
+    # keep breakdown simple but readable
+    breakdown = {}
     for r in results:
         fit_type = r[1]
-        if fit_type not in fit_type_counts:
-            fit_type_counts[fit_type] = {'success': 0, 'failure': 0}
+        if fit_type not in breakdown:
+            breakdown[fit_type] = [0, 0]  # [success, failure]
         if r[0]:
-            fit_type_counts[fit_type]['success'] += 1
+            breakdown[fit_type][0] += 1
         else:
-            fit_type_counts[fit_type]['failure'] += 1
+            breakdown[fit_type][1] += 1
 
     elapsed = time.time() - start_time
 
@@ -112,9 +107,10 @@ def runner(logger, args):
     logger.info(f"    Failed: {failures}/{len(results)}")
     logger.info("    Breakdown by fit type:")
 
-    for fit_type, counts in sorted(fit_type_counts.items()):
-        total = counts['success'] + counts['failure']
-        logger.info(f"      - {fit_type:8s}: {counts['success']}/{total} successful")
+    for fit_type in sorted(breakdown.keys()):
+        success, failure = breakdown[fit_type]
+        total = success + failure
+        logger.info(f"      - {fit_type:8s}: {success}/{total} successful")
 
     logger.info(f"    Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
     logger.info(f"    Average time per task: {elapsed/len(results):.2f} seconds")
@@ -126,79 +122,40 @@ def runner(logger, args):
                 logger.info(f"   - {r[3]}")
 
 
-def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_matcher):
-    """Process a single fit for a single model-variable combination.
-    
-    Parameters
-    ----------
-    logger: logging.Logger
-        logging object
-
-    args: argparse.Namespace
-        CLI args, needs to have
-            - args.fit (fit type to pass to MLE)
-            - args.data (cmip or amip)
-
-    var : str
-        Variable name
-
-    anom_type: str
-        the type of anomaly (trend, raw, annmean)
-
-    m : Model object
-        Model configuration object
-
-    modelname_filepath_matcher : dict
-        Dictionary mapping model names to file paths
-
-    width : int
-        Terminal width for formatting
-
-    rank : int
-        MPI rank of current process
-        
-    Returns
-    -------
-    tuple
-        (success, anom_type, output_path, error_message)
-    """
+def process_single_fit(logger, args, var, anom_type, m, fpath):
+    """Process a single fit for a single model-variable combination."""
 
     try:
         logger.info(f"Working on {var}:{m.name} - {anom_type} fit")
 
-        fpath = modelname_filepath_matcher[m.name]
         ds = xr.open_dataset(fpath)
         ds_selected = ds.sel(member_id=m.primary_member)
 
-        # Select fit type
-        if anom_type == 'raw':
-            ds_fit = ds_mle_fit(args, ds_selected, var_name='tas', fit_dim='year')
-            var_suffix = 'raw'
+        if anom_type not in ANOM_TYPE_TO_VAR:
+            raise ValueError(f"Unknown anom_type: {anom_type}")
 
-        elif anom_type == 'annmean':
-            ds_fit = ds_mle_fit(args, ds_selected, var_name='t2m_anom_annmean', fit_dim='year')
-            var_suffix = 'annmean'
+        var_name = ANOM_TYPE_TO_VAR[anom_type]
 
-        elif anom_type == 'trend':
-            ds_fit = ds_mle_fit(args, ds_selected, var_name='t2m_anom_trend', fit_dim='year')
-            var_suffix = 'trend'
-
-        else:
-            raise ValueError(f"Unknown fit_type: {anom_type}")
+        ds_fit = ds_mle_fit(
+            args,
+            ds_selected,
+            var_name=var_name,
+            fit_dim='year'
+        )
 
         logger.info(f"{anom_type} fit complete.")
 
-        # MLE stats
         success_rate = get_mle_success_rate()
         reset_mle_stats()
 
         ds_fit.attrs['MLE_success_rate'] = success_rate
 
-        # Save
         gev_dir = fpath.parent.parent / 'gev'
-        gev_name = fpath.with_name(
-            fpath.stem + f"_gev_{args.fit}_{var_suffix}" + fpath.suffix
-        ).name
+        gev_name = (
+            fpath.stem
+            + f"_gev_{args.fit}_{anom_type}"
+            + fpath.suffix
+        )
 
         output_path = gev_dir / gev_name
         ds_fit.to_netcdf(output_path)
