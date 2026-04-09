@@ -213,7 +213,6 @@ def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_match
         # Determine which fit to perform
         if anom_type == 'raw':
             ds_fit = ds_mle_fit(
-                logger,
                 args,
                 ds_selected, 
                 var_name='tas',
@@ -223,7 +222,6 @@ def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_match
             
         elif anom_type == 'annmean':
             ds_fit = ds_mle_fit(
-                logger,
                 args,
                 ds_selected, 
                 var_name='t2m_anom_annmean', 
@@ -233,7 +231,6 @@ def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_match
             
         elif anom_type == 'trend':
             ds_fit = ds_mle_fit(
-                logger,
                 args,
                 ds_selected, 
                 var_name='t2m_anom_trend', 

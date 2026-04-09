@@ -129,7 +129,7 @@ def ds_mle_fit(ds, var_name, fit_dim='year', non_stat=False, all_mems=False, par
 # Dataset variable assignment (parameters + SEs)
 # ============================================================
 
-def _assign_params(ds, var_name, gev_params, gev_se, non_stat, all_mems):
+def _assign_params(args, ds, var_name, gev_params, gev_se, non_stat, all_mems):
     """Assign fitted GEV parameters and their standard errors to the dataset.
 
     Resolves the spatial dimensions and variable name suffix from the calling
@@ -150,20 +150,17 @@ def _assign_params(ds, var_name, gev_params, gev_se, non_stat, all_mems):
     }
     sfx = suffix_map.get(var_name, var_name)
 
-    # build ordered list of (param_name, param_index) pairs matching the order
-    # that _mle_fit returns parameters in its output array
-    if non_stat:
-        param_names = [
-            f'loc_{sfx}',     f'loc_t_{sfx}',
-            f'scale_{sfx}',   f'scale_t_{sfx}',
-            f'shape_{sfx}',   f'shape_t_{sfx}',
-        ]
-    else:
-        param_names = [f'loc_{sfx}', f'scale_{sfx}', f'shape_{sfx}']
+    # look up param names from global config
+    if args.fit not in MLE_FIT_ATTRS:
+        raise ValueError(
+            f"Unknown fit_type {fit_type!r}. "
+            f"Expected one of: {list(MLE_FIT_ATTRS)}"
+        )
+    param_names = [f'{p}_{sfx}' for p in MLE_FIT_ATTRS[fit_type]['param_names']]
 
     # assign each parameter and its SE to the dataset
     for i, pname in enumerate(param_names):
-        ds = ds.assign({pname:        (spatial_dims, gev_params.data[..., i])})
+        ds = ds.assign({pname:         (spatial_dims, gev_params.data[..., i])})
         ds = ds.assign({f'se_{pname}': (spatial_dims, gev_se.data[..., i])})
 
     return ds
