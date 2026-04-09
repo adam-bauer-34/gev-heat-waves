@@ -166,8 +166,7 @@ def runner(logger, args):
 
 
 def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_matcher, rank):
-    """
-    Process a single fit for a single model-variable combination.
+    """Process a single fit for a single model-variable combination.
     
     Parameters
     ----------
@@ -267,5 +266,5 @@ def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_match
     except Exception as e:
         import traceback
         error_msg = f"Error processing {var}:{m.name}:{anom_type} - {str(e)}\n{traceback.format_exc()}"
-        logger.warning(f"[Rank {rank}] ❌ {error_msg}")
+        logger.warning(f"[Rank {rank}] {error_msg}")
         return (False, anom_type, None, error_msg)
