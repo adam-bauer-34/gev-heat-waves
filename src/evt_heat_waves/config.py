@@ -27,8 +27,25 @@ STATS_PATH = DATA_ROOT / CONFIG["STATS_DIR"]
 
 # mapping for args.fit -> data path
 MIP_FIT_PATH_DICT = {
-    'cmip': CMIP_PATH,
-    'amip': AMIP_PATH
+    'cmip': {
+        'data': CMIP_PATH,
+        'config': {
+            'meta': CONFIG_PATH.parent / "meta.yaml",
+            'qc': CONFIG_PATH.parent / "qc.yaml"}
+    },
+    'amip': {
+        'data': AMIP_PATH,
+        'config': {
+            'meta': CONFIG_PATH.parent / "meta_amip.yaml",
+            'qc': CONFIG_PATH.parent / "qc_amip.yaml"}
+    },
+}
+
+# mapping for data -> variable name in dataset
+ANOM_TYPE_TO_VAR = {
+    'raw': 'tas',
+    'annmean': 't2m_anom_annmean',
+    'trend': 't2m_anom_trend'
 }
 
 # MLE characteristics

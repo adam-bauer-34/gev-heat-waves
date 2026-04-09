@@ -12,7 +12,7 @@ import time
 import xarray as xr
 from mpi4py import MPI
 
-from evt_heat_waves.config import MIP_FIT_PATH_DICT, CONFIG_PATH
+from evt_heat_waves.config import MIP_FIT_PATH_DICT, ANOM_TYPE_TO_VAR
 from evt_heat_waves.cmip_dataclass import CMIP6EnsembleConfig
 from evt_heat_waves.utils import extract_model_name
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
@@ -37,6 +37,14 @@ def runner(logger, args):
     comm = MPI.COMM_WORLD  # communicator object -- allows communication across tasks
     rank = comm.Get_rank()  # gets *this* process's unique ID
     size = comm.Get_size()  # total number of processes
+
+    # extract path info
+    try:
+        head_data_path = MIP_FIT_PATH_DICT[args.data]['data']
+        config_meta_path = MIP_FIT_PATH_DICT[args.data]['config']['meta']
+        config_qc_path = MIP_FIT_PATH_DICT[args.data]['config']['qc']
+    except Exception as e:
+        raise KeyError(f"Error in data config for GEV fitting: {str(e)}")
     
     # Only rank 0 does initial setup and task distribution
     ## rank 0 does all the initial setup and distribution because I/O operations
@@ -46,8 +54,8 @@ def runner(logger, args):
         logger.info(f"Starting MPI parallel processing with {size} processes")
         
         # Setup CMIP config object
-        CMIPConfig = CMIP6EnsembleConfig.from_yaml(CONFIG_PATH.parent / "meta.yaml", 
-                                                   CONFIG_PATH.parent / "qc.yaml")
+        CMIPConfig = CMIP6EnsembleConfig.from_yaml(config_meta_path, 
+                                                   config_qc_path)
         
         # Define variables and fit types
         vars = ['tas_annual_max', 'tas_annual_min']
@@ -60,8 +68,8 @@ def runner(logger, args):
             logger.info(f"Setting up tasks for: {var}")
             
             # Make data directory if it doesn't exist
-            os.makedirs(MIP_FIT_PATH_DICT[args.data] / var / 'gev', exist_ok=True)
-            data_path = MIP_FIT_PATH_DICT[args.data] / var / 'landonly'
+            os.makedirs(head_data_path / var / 'gev', exist_ok=True)
+            data_path = head_data_path / var / 'landonly'
             
             # Make all landonly file names
             fnames = [f for f in data_path.glob("*_landonly.nc")]
@@ -207,37 +215,20 @@ def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_match
         fpath = modelname_filepath_matcher[m.name]
         ds = xr.open_dataset(fpath)
         ds_selected = ds.sel(member_id=m.primary_member)
+
+        # mapping for data -> variable name in dataset
+        try:
+            var_name = ANOM_TYPE_TO_VAR[anom_type]
+        except KeyError:
+            raise ValueError(f"Unknown anom_type: {anom_type}")
         
-        # Determine which fit to perform
-        if anom_type == 'raw':
-            ds_fit = ds_mle_fit(
-                args,
-                ds_selected, 
-                var_name='tas',
-                fit_dim='year',
-            )
-            var_suffix = 'raw'
-            
-        elif anom_type == 'annmean':
-            ds_fit = ds_mle_fit(
-                args,
-                ds_selected, 
-                var_name='t2m_anom_annmean', 
-                fit_dim='year',
-            )
-            var_suffix = 'annmean'
-            
-        elif anom_type == 'trend':
-            ds_fit = ds_mle_fit(
-                args,
-                ds_selected, 
-                var_name='t2m_anom_trend', 
-                fit_dim='year',
-            )
-            var_suffix = 'trend'
-        else:
-            raise ValueError(f"Unknown fit_type: {anom_type}")
-        
+        # do fitting
+        ds_fit = ds_mle_fit(
+            args,
+            ds_selected,
+            var_name=var_name,
+            fit_dim='year'
+        )
         logger.info(f"[Rank {rank}] {anom_type} fit complete.")
 
         # get MLE success rate; reset immediately after
@@ -250,7 +241,7 @@ def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_match
         # Save dataset
         gev_dir = fpath.parent.parent / 'gev'
         gev_name = fpath.with_name(
-            fpath.stem + f"_gev_{args.fit}_{var_suffix}" + fpath.suffix
+            fpath.stem + f"_gev_{args.fit}_{anom_type}" + fpath.suffix
         ).name
         
         output_path = gev_dir / gev_name
