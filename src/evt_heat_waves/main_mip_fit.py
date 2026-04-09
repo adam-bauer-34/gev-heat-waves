@@ -14,6 +14,7 @@ from evt_heat_waves.mip_fit import FIT_REGISTRY
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
+
 def main():
     """Main function for GEV fitting.
     """
@@ -32,7 +33,7 @@ def main():
 
     # run fitting for the passed data type, member config, and w/wo MPI turned on
     try:
-        run_data_mem = FIT_REGISTRY[args.data][args.member_config]
+        run_data_mem = FIT_REGISTRY[args.member_config]
         run_fit = run_data_mem['mpi'] if args.mpi else run_data_mem['no_mpi']
 
     except KeyError:
