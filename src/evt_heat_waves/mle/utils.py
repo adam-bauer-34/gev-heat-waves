@@ -5,10 +5,7 @@ UChicago
 Apr 8 2026
 """
 
-from evt_heat_waves.config import MLE_FIT_ATTRS
-
-# canonical full parameter order the MLE always solves over
-MLE_FULL_PARAM_NAMES = ['loc', 'loc_t', 'scale', 'scale_t', 'shape', 'shape_t']
+from evt_heat_waves.config import MLE_FIT_ATTRS, MLE_FULL_PARAM_NAMES
 
 def get_bounds(fit_type):
     """Return a length-6 tuple of (lo, hi) bound pairs for scipy.optimize.minimize.

@@ -21,12 +21,14 @@ import numpy as np
 import xarray as xr
 
 from scipy.optimize import minimize
-from evt_heat_waves.config import MLE_FIT_ATTRS
+from evt_heat_waves.config import MLE_FIT_ATTRS, MLE_FULL_PARAM_NAMES
 from evt_heat_waves.mle.utils import get_bounds, get_constraints
+from evt_heat_waves.mle.grad import grad_negative_log_likelihood
+from evt_heat_waves.mle.se import get_standard_errors
 
 
-def ds_mle_fit(args,
-               ds, var_name, fit_dim='year', non_stat=False, all_mems=False, parallel=True):
+def ds_mle_fit(args, ds, var_name, fit_dim='year',
+               all_mems=False):
     """Fit (potentially nonstationary) GEV distribution to each (lat, lon) pair
     of an xarray Dataset via maximum likelihood estimation.
 
@@ -48,9 +50,6 @@ def ds_mle_fit(args,
     all_mems: bool
         fit to all ensemble members? (only applicable for one CMIP model)
 
-    parallel: bool
-        whether to use dask parallelization for the fitting
-
     Returns
     -------
     ds: xarray.Dataset
@@ -60,41 +59,57 @@ def ds_mle_fit(args,
     # subselect variable to do the fitting over
     da = ds[var_name]
 
+    # set ufunc keyword args
+    ufunc_kwargs_fit = dict(
+        input_core_dims=[[fit_dim], []],
+        output_core_dims=[['gev_params']],
+        vectorize=True,
+        dask='parallelized',
+        output_dtypes=[float],
+        dask_gufunc_kwargs={'output_sizes': {'gev_params': MLE_FIT_ATTRS[args.fit]['N_params']}}
+    )
+
     # carry out either parallelized or non-parallelized fit
-    if parallel:
-        gev_params = xr.apply_ufunc(
-            _mle_fit,
-            da,
-            non_stat,
-            input_core_dims=[[fit_dim], []],
-            output_core_dims=[['gev_params']],
-            vectorize=True,
-            dask='parallelized',
-            output_dtypes=[float],
-            dask_gufunc_kwargs={
-                'output_sizes': {'gev_params' : MLE_FIT_ATTRS[args.fit]['N_params']}
-            }
+    gev_params = xr.apply_ufunc(
+        _mle_fit,
+        da,
+        args.fit,
+        *ufunc_kwargs_fit
+    )
+
+    # assign parameter names to gev_params coordinate
+    gev_params = gev_params.assign_coords(gev_params=MLE_FIT_ATTRS[args.fit]['param_names'])
+
+    # set ufunc attrs for se calc
+    ufunc_kwargs_se = dict(input_core_dims=[['gev_params'], ['year']],
+        output_core_dims=[['gev_params']],
+        vectorize=True,
+        dask='parallelized',
+        output_dtypes=[float],
+        dask_gufunc_kwargs={
+            'output_sizes': {'gev_params': MLE_FIT_ATTRS[args.fit]['N_params']}
+        })
+
+    # if we also calculate the standard errors, compute, otherwise fill nans
+    # then map into dataset
+    if not args.no_se:
+        gev_se = xr.apply_ufunc(
+            get_standard_errors,
+            gev_params,  # (lat, lon, param)
+            da,          # (lat, lon, year)
+            kwargs={
+                'fit_type': args.fit 
+            },
+            *ufunc_kwargs_se
         )
 
+        # assign parameter names
+        ds = _assign_params(args, ds, var_name, gev_params, gev_se, all_mems)
+    
     else:
-        gev_params = xr.apply_ufunc(
-            _mle_fit,
-            da,
-            non_stat,
-            input_core_dims=[[fit_dim], []],
-            output_core_dims=[['gev_params']],
-            vectorize=True,
-            dask='parallelized',
-            output_dtypes=[float],
-            dask_gufunc_kwargs={
-                'output_sizes': {'gev_params' : MLE_FIT_ATTRS[args.fit]['N_params']}
-            }
-        )
-
-    gev_se = gev_params.copy()  # in prog
-
-    # assign parameter names
-    ds = _assign_params(args, ds, var_name, gev_params, gev_se, all_mems)
+        # assign parameter names, with SEs set to NaN
+        gev_se = xr.full_like(gev_params, np.nan)
+        ds = _assign_params(args, ds, var_name, gev_params, gev_se, all_mems)
 
     # return the amended dataset
     return ds
@@ -125,7 +140,7 @@ def _mle_fit(data, fit_type='stat', SAMPLE_THRES=10):
 
     scale_guess = samp_std * np.sqrt(6) / np.pi  # initial guess for scale
     loc_guess = samp_mean + scale_guess * EULER_CONST  # initial guess for loc
-    shape_guess = -0.1  # initial guess for shape
+    shape_guess = -0.5  # initial guess for shape
 
     initial_guess = [loc_guess, 0.0,  # loc parameters
                      scale_guess, 0.0,  # scale parameters
@@ -136,36 +151,26 @@ def _mle_fit(data, fit_type='stat', SAMPLE_THRES=10):
     cons = get_constraints(fit_type)
     bounds = get_bounds(fit_type)
 
-    # LEFT OFF HERE 4/8/2026    
-    
     # do MLE fit
     fit = minimize(_negative_log_likelihood,
                     initial_guess,
-                    args=(data, non_stat),
+                    args=(data, fit_type),
                     method='SLSQP',  # SLSQP to allow for constraints
                     constraints=cons,
                     bounds=bounds,
-                    # jac=_grad_negative_log_likelihood
+                    # jac=grad_negative_log_likelihood
                     )
 
     # if the fit is successful, return parameters, else return nans
     if fit.success:
         _mle_fit.success_count += 1
-        total = _mle_fit.success_count + _mle_fit.fail_count
-        success_rate = _mle_fit.success_count / total
-        if non_stat:
-            return np.array(fit.x)  # return all 6 parameters
-        else:
-            return np.array([fit.x[0], fit.x[2], fit.x[4]])  # loc_0, scale_0, shape_0
-    
     else:
         _mle_fit.fail_count += 1
-        total = _mle_fit.success_count + _mle_fit.fail_count
-        success_rate = _mle_fit.success_count / total
-        if non_stat:
-            return np.array([np.nan] * 6)  # return nans for failed fit
-        else:
-            return np.array([np.nan] * 3)  # return nans for failed fit
+
+    if fit.success:
+        return _extract_params(np.array(fit.x), fit_type)
+    else:
+        return np.array([np.nan] * MLE_FIT_ATTRS[fit_type]['N_params'])
 
 
 def reset_mle_stats(silent=True):
@@ -184,12 +189,24 @@ def get_mle_success_rate():
     return _mle_fit.success_count / total  # success rate of MLE algorithm
 
 
-def _negative_log_likelihood(params, data, non_stat=False):
-    if non_stat:
-        loc_0, loc_1, scale_0, scale_1, shape_0, shape_1 = params
-    else:
-        loc_0, loc_1, scale_0, scale_1, shape_0, shape_1 = params
-        loc_1 = scale_1 = shape_1 = 0
+def _negative_log_likelihood(params, data):
+    """Get the negative log likelihood of the nonstationary GEV (with some params)
+    set to zero by SLSQP constraints.
+
+    Parameters
+    ----------
+    params: (6,) list
+        the GEV params
+    
+    data: array-like
+        the data to fit the GEV to
+    
+    Returns
+    -------
+    log_likelihood: float
+        the total NEGATIVE log likelihood
+    """
+    loc_0, loc_1, scale_0, scale_1, shape_0, shape_1 = params
 
     time = np.arange(0, len(data), 1) / len(data)  # normalized time variable
 
@@ -203,6 +220,7 @@ def _negative_log_likelihood(params, data, non_stat=False):
     )
 
     return log_likelihood
+
 
 def _gev_pdf(x, loc, scale, shape,
                  ret_nan=False, pen=np.exp(-50)):
@@ -292,6 +310,17 @@ def _gev_pdf(x, loc, scale, shape,
         # eval PDF
         pdf = (1 / scale) * t_x**(shape + 1) * np.exp(-t_x)
         return pdf
+    
+
+def _extract_params(fit_x, fit_type):
+    """Extract active parameters from the full MLE solution vector.
+
+    The MLE always solves over MLE_FULL_PARAM_NAMES (length 6). This returns
+    only the indices corresponding to the fit_type's param_names, in order.
+    """
+    param_names = MLE_FIT_ATTRS[fit_type]['param_names']
+    idx = [MLE_FULL_PARAM_NAMES.index(p) for p in param_names]
+    return fit_x[idx]
     
 
 def _assign_params(args, ds, var_name, gev_params, gev_se, all_mems):

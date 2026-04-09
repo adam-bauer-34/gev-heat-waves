@@ -8,7 +8,7 @@ Apr 8, 2026
 import numpy as np
 
 
-def _grad_negative_log_likelihood(params, data, non_stat=False):
+def grad_negative_log_likelihood(params, data, non_stat=False):
     """Analytic gradients of the negative log-likelihood function.
     """
 
@@ -326,7 +326,6 @@ def _dhepler_dshape(x, loc_0, loc_1, scale_0, scale_1, shape_0, shape_1, time):
     """
     loc = loc_0 + loc_1 * time
     scale = scale_0 + scale_1 * time
-    shape = shape_0 + shape_1 * time
 
     dtx_dshape = (x - loc) / scale
     return dtx_dshape
