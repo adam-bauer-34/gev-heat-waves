@@ -9,7 +9,7 @@ import shutil
 import time
 
 from evt_heat_waves.logging import setup_logger, get_git_hash
-from evt_heat_waves.config import parse_args_mip_fit
+from evt_heat_waves.cli import parse_args_mip_fit
 from evt_heat_waves.mip_fit import FIT_REGISTRY
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
