@@ -8,7 +8,7 @@ Apr 8, 2026
 import time
 import shutil
 
-from evt_heat_waves.logging import setup_logger, get_git_hash
+from evt_heat_waves.logging_utils import setup_logger, get_git_hash
 from evt_heat_waves.cli import parse_args_bootstrap
 from evt_heat_waves.kuiper.bootstrap import get_bootstrapped_kuipers
 

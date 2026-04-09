@@ -9,7 +9,7 @@ import time
 import shutil
 
 from evt_heat_waves.cli import parse_args_pproc
-from evt_heat_waves.logging import setup_logger, get_git_hash
+from evt_heat_waves.logging_utils import setup_logger, get_git_hash
 from evt_heat_waves.pproc import PPROC_REGISTRY
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
