@@ -113,10 +113,9 @@ def runner(logger, args):
             logger=task['logger'],
             args=task['args'],
             var=task['var'],
-            anom_type=task['anom_type']
+            anom_type=task['anom_type'],
             m=task['model'],
             modelname_filepath_matcher=task['filepath_matcher'],
-            width=task['width'],
             rank=rank
         )
         my_results.append(result)
@@ -204,7 +203,7 @@ def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_match
         (success, anom_type, output_path, error_message)
     """
     try:
-        logger.info(f"[Rank {rank}] 🪛 Working on {var}:{m.name} - {anom_type} fit")
+        logger.info(f"[Rank {rank}] Working on {var}:{m.name} - {anom_type} fit")
         
         fpath = modelname_filepath_matcher[m.name]
         ds = xr.open_dataset(fpath)

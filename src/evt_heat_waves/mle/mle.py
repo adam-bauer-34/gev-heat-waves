@@ -59,6 +59,9 @@ def ds_mle_fit(args, ds, var_name, fit_dim='year',
     # subselect variable to do the fitting over
     da = ds[var_name]
 
+    # number of params in this fit
+    N_PARAMS = MLE_FIT_ATTRS[args.fit]['param_names']
+
     # set ufunc keyword args
     ufunc_kwargs_fit = dict(
         input_core_dims=[[fit_dim], []],
@@ -66,7 +69,9 @@ def ds_mle_fit(args, ds, var_name, fit_dim='year',
         vectorize=True,
         dask='parallelized',
         output_dtypes=[float],
-        dask_gufunc_kwargs={'output_sizes': {'gev_params': MLE_FIT_ATTRS[args.fit]['N_params']}}
+        dask_gufunc_kwargs={
+            'output_sizes': {'gev_params': N_PARAMS}
+            }
     )
 
     # carry out either parallelized or non-parallelized fit
@@ -78,7 +83,7 @@ def ds_mle_fit(args, ds, var_name, fit_dim='year',
     )
 
     # assign parameter names to gev_params coordinate
-    gev_params = gev_params.assign_coords(gev_params=MLE_FIT_ATTRS[args.fit]['param_names'])
+    gev_params = gev_params.assign_coords(gev_params=N_PARAMS)
 
     # set ufunc attrs for se calc
     ufunc_kwargs_se = dict(input_core_dims=[['gev_params'], ['year']],
@@ -87,7 +92,7 @@ def ds_mle_fit(args, ds, var_name, fit_dim='year',
         dask='parallelized',
         output_dtypes=[float],
         dask_gufunc_kwargs={
-            'output_sizes': {'gev_params': MLE_FIT_ATTRS[args.fit]['N_params']}
+            'output_sizes': {'gev_params': N_PARAMS}
         })
 
     # if we also calculate the standard errors, compute, otherwise fill nans
@@ -113,6 +118,7 @@ def ds_mle_fit(args, ds, var_name, fit_dim='year',
 
     # return the amended dataset
     return ds
+
 
 def _mle_fit(data, fit_type='stat', SAMPLE_THRES=10):
     """Fit a potentiallly nonstationary GEV distribution to data via MLE.
@@ -150,12 +156,9 @@ def _mle_fit(data, fit_type='stat', SAMPLE_THRES=10):
     # if the fit is successful, return parameters, else return nans
     if fit.success:
         _mle_fit.success_count += 1
-    else:
-        _mle_fit.fail_count += 1
-
-    if fit.success:
         return _extract_params(np.array(fit.x), fit_type)
     else:
+        _mle_fit.fail_count += 1
         return np.array([np.nan] * MLE_FIT_ATTRS[fit_type]['N_params'])
 
 
@@ -408,14 +411,3 @@ if __name__ == '__main__':
 
     # df.to_csv('data/checks/mle_sample_size_l2_stat_nonstat.csv', index=False)
     # print("\nDataFrame saved to data/checks/mle_sample_size_l2_stat_nonstat.csv")
-
-    """
-    import matplotlib.pyplot as plt 
-
-    xs = np.arange(-100, 100, 1.)
-    ys = np.log([_gev_pdf(x, loc=20, scale=1.5, shape=0.25)
-                 for x in xs])
-
-    plt.plot(xs, ys)
-    plt.show()
-    """
