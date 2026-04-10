@@ -23,15 +23,11 @@ suffix_map = {
 }
 
 
-def compute_kuiper_stats(args, ds, var_name='t2m', fit_dim='year'):
+def compute_kuiper_stats(ds, var_name='t2m', fit_dim='year'):
     """Compute Kuiper statistics at each gridcell.
 
     Parameters
     ----------
-    args: argparse.Namespace
-        CLI arguments, this needs:
-            - args.fit
-
     ds: xarray.Dataset
         the input dataset containing the data to fit
 
@@ -134,6 +130,7 @@ def _kuiper_syn(shape, loc, scale, N_SAMPLES):
         else:
             tmp_k = _kuiper(tmp_sample, shape_hat, loc_hat, scale_hat)
             return tmp_k
+
 
 def _assign_kuiper(ds, var_name, da_ko, da_ks):
     """Assign Kuiper statistics for observed and synthetic data to the dataset.

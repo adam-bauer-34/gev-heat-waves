@@ -1,4 +1,4 @@
-"""Runner function for fitting GEV to ERA5 data using MPI to parallelize across many fits.
+"""Runner function for computing Kuiper statistics for ERA5 data in parallel using MPI.
 
 Adam Bauer
 UChicago
@@ -6,7 +6,6 @@ Apr 2026
 """
 
 import shutil
-import os
 import traceback
 import time
 
@@ -14,7 +13,7 @@ import xarray as xr
 from mpi4py import MPI
 
 from evt_heat_waves.config import ERA5_PATH, ANOM_TYPE_TO_VAR
-from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
+from evt_heat_waves.mle.mle import ds_mle_fit
 from evt_heat_waves.kuiper.kuiper_fitting import compute_kuiper_stats
 from evt_heat_waves.logging_utils import setup_logger
 
@@ -97,7 +96,7 @@ def runner(logger, args):
         print(f"[Rank {rank}] Processing task {task_idx+1}/{len(my_tasks)}: "
               f"{task['var']}:{task['TMIN']}:{task['anom_type']}")
         
-        result = process_single_fit_and_kuiper(
+        result = process_single_kuiper(
             logger=logger,
             args=task['args'],
             var=task['var'],
@@ -213,19 +212,11 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type, rank):
 
         # do kuiper analysis
         ds_kuiper = compute_kuiper_stats(
-            args,
             ds,
             var_name=var_name,
-            fit_dime='year'
+            fit_dim='year'
         )
         
-        # set success rate
-        stat_success_rate = get_mle_success_rate()
-        ds_kuiper.attrs['MLE_success_rate'] = stat_success_rate
-
-        # reset success rate for mle
-        reset_mle_stats()
-
         # check: print kuiper dataset
         logger.debug(f"[Rank {rank}]: Kuiper statistics-fitted dataset:\n {ds_kuiper}")
         
@@ -250,7 +241,7 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type, rank):
 
     except Exception as e:
         error_msg = f"Error processing {var}:{anom_type} function call with TMIN={TMIN} - {str(e)}\n{traceback.format_exc()}"
-        logger.error(f"Rank: {rank}] ❌ {error_msg}")
+        logger.error(f"[Rank: {rank}] {error_msg}")
 
         # return success, anomaly type, stationary fit output path, nonstationary fit output path, and error msg
         return (False, anom_type, None, error_msg)
