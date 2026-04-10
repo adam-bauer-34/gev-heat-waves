@@ -211,6 +211,7 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type, rank):
                 fit_dim='year'
             )
 
+        # do kuiper analysis
         ds_kuiper = compute_kuiper_stats(
             args,
             ds,

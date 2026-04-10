@@ -34,14 +34,14 @@ def main():
 
     # run fitting for the passed data type, member config, and w/wo MPI turned on
     try:
-        run_fit = KUIPER_REGISTRY['mpi'] if args.mpi else KUIPER_REGISTRY['no_mpi']
+        run_kuiper = KUIPER_REGISTRY['mpi'] if args.mpi else KUIPER_REGISTRY['no_mpi']
 
     except KeyError:
         raise ValueError(f"Runner for with/without MPI doesn't exist for current setup.")
 
-    logger.info(f"Doing GEV fit and Kuiper statistics analysis for config: {args.fit}|MPI={args.mpi}")
+    logger.info(f"Doing Kuiper statistics analysis for config: {args.grid}|MPI={args.mpi}")
     logger.info("-" * width)
-    run_fit(logger, args)
+    run_kuiper(logger, args)
 
     t1 = time.time()
 
