@@ -133,25 +133,26 @@ def runner(logger, args):
     logger.info('-' * width)
     logger.info("SUMMARY")
     logger.info('-' * width)
-    logger.info(f"    Successful: {successes}/{len(all_results)}")
-    logger.info(f"    Failed: {failures}/{len(all_results)}")
-    logger.info(f"    Breakdown by variable and fit type:")
+    logger.info(f"Successful: {successes}/{len(all_results)}")
+    logger.info(f"Failed: {failures}/{len(all_results)}")
+    logger.info(f"Breakdown by variable and fit type:")
     for key, counts in sorted(breakdown.items()):
         total = counts['success'] + counts['failure']
-        logger.info(f"      - {key:30s}: {counts['success']}/{total}")
+        logger.info(f"  - {key:30s}: {counts['success']}/{total}")
         var_key, fit_key = key.split(':')
         path = output_paths.get((var_key, fit_key), 'N/A')
-        logger.info(f"        Output: {path}")
-    logger.info(f"    Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
-    logger.info(f"    Average time per task: {elapsed/len(all_results):.2f} seconds")
+        logger.info(f"  - Output: {path}")
+    logger.info(f"Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+    logger.info(f"Average time per task: {elapsed/len(all_results):.2f} seconds")
 
     if failures > 0:
         logger.info("Failed tasks:")
         for r in all_results:
             if not r[0]:
-                logger.info(f"   - {r[1]}:{r[2]}:{r[3]}")
+                logger.info(f"  - {r[1]}:{r[2]}:{r[3]}")
                 if r[7]:
-                    logger.info(f"     Error: {r[7][:200]}...")
+                    logger.info(f"  - Error: {r[7][:200]}...")
+    logger.info("-" * width)
 
 
 def process_single_fit(logger, args, var, anom_type, model_with_most, mem, fpath):

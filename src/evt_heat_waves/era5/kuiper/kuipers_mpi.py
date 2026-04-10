@@ -133,22 +133,23 @@ def runner(logger, args):
         elapsed = end_time - start_time
         
         print('-'*width)
-        print("SUMMARY")
-        print('-'*width)
-        print(f"    Successful: {successes}/{len(flat_results)}")
-        print(f"    Failed: {failures}/{len(flat_results)}")
-        print(f"    Breakdown by fit type:")
+        logger.info("SUMMARY")
+        logger.info('-' * width)
+        logger.info(f"Successful: {successes}/{len(all_results)}")
+        logger.info(f"Failed: {failures}/{len(all_results)}")
+        logger.info(f"Breakdown by fit type:")
         for fit_type, counts in sorted(fit_type_counts.items()):
             total = counts['success'] + counts['failure']
-            print(f"      - {fit_type:8s}: {counts['success']}/{total} successful")
-        print(f"    Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
-        print(f"    Average time per task: {elapsed/len(flat_results):.2f} seconds")
-        
+            logger.info(f"  - {fit_type:8s}: {counts['success']}/{total} successful")
+        logger.info(f"Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+        logger.info(f"Average time per task: {elapsed/len(all_results):.2f} seconds")
+
         if failures > 0:
-            print("    Failed tasks:")
-            for r in flat_results:
+            logger.info("Failed tasks:")
+            for r in all_results:
                 if not r[0]:
-                    print(f"   - {r[3]}")
+                    logger.info(f"  - {r[3]}")
+        logger.info('-' * width)
         
 def process_single_kuiper(logger, args, var, TMIN, anom_type, rank):
     """Process a single fit for a single model-variable combination.
