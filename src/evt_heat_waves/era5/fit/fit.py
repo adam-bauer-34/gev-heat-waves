@@ -13,6 +13,7 @@ import xarray as xr
 
 from evt_heat_waves.config import ERA5_PATH, ANOM_TYPE_TO_VAR
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
+from evt_heat_waves.logging_utils import setup_logger
 
 TERMINAL_WIDTH = shutil.get_terminal_size(fallback=(80, 20)).columns
 
@@ -43,6 +44,7 @@ def runner(logger, args):
         for TMIN in tmins:
             for anom_type in anom_types:
                 all_tasks.append({
+                    'args': args,
                     'var': var,
                     'TMIN': TMIN,
                     'anom_type': anom_type
@@ -54,11 +56,11 @@ def runner(logger, args):
     all_results = []
     for task_idx, task in enumerate(all_tasks):
         logger.info(f"Processing task {task_idx + 1}/{len(all_tasks)}: "
-              f"{task['var']}:{task['TMIN']}:{task['anom_type']}")
+                    f"{task['var']}:{task['TMIN']}:{task['anom_type']}")
 
         result = process_single_fit(
             logger=logger,
-            args=args,
+            args=task['args'],
             var=task['var'],
             TMIN=task['TMIN'],
             anom_type=task['anom_type'],
@@ -102,7 +104,7 @@ def runner(logger, args):
 
 
 def process_single_fit(logger, args, var, TMIN, anom_type):
-    """Process a single fit for a single variable combination.
+    """Process a single fit for a single model-variable combination.
     
     Parameters
     ----------
@@ -157,18 +159,16 @@ def process_single_fit(logger, args, var, TMIN, anom_type):
 
         ds_fit.attrs['MLE_success_rate'] = stat_success_rate
 
-        # save dataset
         gev_dir = fpath.parent.parent / 'gev'
-        gev_dir.mkdir(parents=True, exist_ok=True)  # ensure dir exists
+        gev_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.debug(f"[Rank {rank}] Output directory for GEV fit: {gev_dir}")
-        
+        logger.debug(f"Output directory for GEV fit: {gev_dir}")
+
         fit_fname = f"{fpath.stem}_gev_{args.fit}_TMIN{TMIN}_{anom_type}{fpath.suffix}"
         logger.debug(f"The output path is: {gev_dir / fit_fname}")
 
         ds_fit.to_netcdf(gev_dir / fit_fname)
-        
-        # close datasets to save memory
+
         ds.close()
         ds_fit.close()
 
