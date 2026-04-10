@@ -103,23 +103,25 @@ def runner(logger, args):
     logger.info("-" * width)
     logger.info("SUMMARY")
     logger.info("-" * width)
-    logger.info(f"    Successful: {successes}/{len(results)}")
-    logger.info(f"    Failed: {failures}/{len(results)}")
-    logger.info("    Breakdown by fit type:")
+    logger.info(f"Successful: {successes}/{len(results)}")
+    logger.info(f"Failed: {failures}/{len(results)}")
+    logger.info("Breakdown by fit type:")
 
     for fit_type in sorted(breakdown.keys()):
         success, failure = breakdown[fit_type]
         total = success + failure
-        logger.info(f"      - {fit_type:8s}: {success}/{total} successful")
+        logger.info(f"  - {fit_type:8s}: {success}/{total} successful")
 
-    logger.info(f"    Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
-    logger.info(f"    Average time per task: {elapsed/len(results):.2f} seconds")
+    logger.info(f"Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+    logger.info(f"Average time per task: {elapsed/len(results):.2f} seconds")
 
     if failures > 0:
-        logger.info("    Failed tasks:")
+        logger.info("Failed tasks:")
         for r in results:
             if not r[0]:
-                logger.info(f"   - {r[3]}")
+                logger.info(f"  - {r[3]}")
+    logger.info("-" * width)
+
 
 
 def process_single_fit(logger, args, var, anom_type, m, fpath):
