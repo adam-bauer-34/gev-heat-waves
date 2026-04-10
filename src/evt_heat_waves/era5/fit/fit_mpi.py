@@ -1,24 +1,22 @@
-"""Function bank for MPI-enhanced GEV fitting to CMIP data.
+"""Runner function for fitting GEV to ERA5 data using MPI to parallelize across many fits.
 
-Adam Michael Bauer
+Adam Bauer
 UChicago
-Apr 8 2026
+Apr 2026
 """
 
-import os
 import shutil
+import traceback
 import time
 
 import xarray as xr
 from mpi4py import MPI
 
-from evt_heat_waves.config import MIP_FIT_PATH_DICT, ANOM_TYPE_TO_VAR
-from evt_heat_waves.cmip_dataclass import CMIP6EnsembleConfig
-from evt_heat_waves.utils import extract_model_name
+from evt_heat_waves.config import ERA5_PATH, ANOM_TYPE_TO_VAR
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
 from evt_heat_waves.logging_utils import setup_logger
 
-width = shutil.get_terminal_size(fallback=(80, 20)).columns
+TERMINAL_WIDTH = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 
 def runner(logger, args):
@@ -38,14 +36,6 @@ def runner(logger, args):
     comm = MPI.COMM_WORLD  # communicator object -- allows communication across tasks
     rank = comm.Get_rank()  # gets *this* process's unique ID
     size = comm.Get_size()  # total number of processes
-
-    # extract path info
-    try:
-        head_data_path = MIP_FIT_PATH_DICT[args.data]['data']
-        config_meta_path = MIP_FIT_PATH_DICT[args.data]['config']['meta']
-        config_qc_path = MIP_FIT_PATH_DICT[args.data]['config']['qc']
-    except Exception as e:
-        raise KeyError(f"Error in data config for GEV fitting: {str(e)}")
     
     # Only rank 0 does initial setup and task distribution
     ## rank 0 does all the initial setup and distribution because I/O operations
@@ -54,13 +44,10 @@ def runner(logger, args):
         start_time = time.time()
         logger.info(f"Starting MPI parallel processing with {size} processes")
         
-        # Setup CMIP config object
-        CMIPConfig = CMIP6EnsembleConfig.from_yaml(config_meta_path, 
-                                                   config_qc_path)
-        
-        # Define variables and fit types
-        vars = ['tas_annual_max', 'tas_annual_min']
+        # Define variables, stationary/nonstationary, and anomaly types to parallelize over
+        vars = ['t2m_annual_max', 't2m_annual_min']
         anom_types = ['raw', 'annmean', 'trend']
+        tmins = [1950, 1979]
         
         # Collect all tasks (each fit is now a separate task)
         all_tasks = []
@@ -68,27 +55,15 @@ def runner(logger, args):
         for var in vars:
             logger.info(f"Setting up tasks for: {var}")
             
-            # Make data directory if it doesn't exist
-            os.makedirs(head_data_path / var / 'gev', exist_ok=True)
-            data_path = head_data_path / var / 'landonly'
-            
-            # Make all landonly file names
-            fnames = [f for f in data_path.glob("*_landonly.nc")]
-            modelname_filepath_matcher = {
-                extract_model_name(f): f for f in fnames
-            }
-            
             # Collect tasks for this variable
             # Now we create 3 tasks per model (one for each fit type)
-            for m in CMIPConfig.iter_active_models(var):
+            for TMIN in tmins:
                 for anom_type in anom_types:
                     all_tasks.append({
                         'args': args,
                         'var': var,
-                        'anom_type': anom_type,
-                        'model': m,
-                        'filepath_matcher': modelname_filepath_matcher,
-                        'width': width
+                        'TMIN': TMIN,
+                        'anom_type': anom_type
                     })
         
         logger.info(f"Total tasks to process: {len(all_tasks)}")
@@ -106,6 +81,7 @@ def runner(logger, args):
     logger.debug(f"[Rank {rank}] logger initalized successfully")
     
     # Distribute tasks using round-robin distribution
+    # this is good for tasks that take about as long to take as one another
     my_tasks = [task for i, task in enumerate(all_tasks) if i % size == rank]
     
     logger.info(f"[Rank {rank}] Processing {len(my_tasks)} tasks")
@@ -117,15 +93,14 @@ def runner(logger, args):
     # loop through tasks for this rank and perform operations...
     for task_idx, task in enumerate(my_tasks):
         logger.info(f"[Rank {rank}] Processing task {task_idx+1}/{len(my_tasks)}: "
-              f"{task['var']}:{task['model'].name}:{task['fit_type']}")
+              f"{task['var']}:{task['TMIN']}:{task['anom_type']}")
         
         result = process_single_fit(
             logger=logger,
             args=task['args'],
             var=task['var'],
+            TMIN=task['TMIN'],
             anom_type=task['anom_type'],
-            m=task['model'],
-            modelname_filepath_matcher=task['filepath_matcher'],
             rank=rank
         )
         my_results.append(result)
@@ -156,9 +131,9 @@ def runner(logger, args):
         end_time = time.time()
         elapsed = end_time - start_time
         
-        logger.info("-" * width)
+        logger.info('-'*TERMINAL_WIDTH)
         logger.info("SUMMARY")
-        logger.info('-' *width)
+        logger.info('-'*TERMINAL_WIDTH)
         logger.info(f"    Successful: {successes}/{len(flat_results)}")
         logger.info(f"    Failed: {failures}/{len(flat_results)}")
         logger.info(f"    Breakdown by fit type:")
@@ -173,9 +148,8 @@ def runner(logger, args):
             for r in flat_results:
                 if not r[0]:
                     logger.info(f"   - {r[3]}")
-
-
-def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_matcher, rank):
+        
+def process_single_fit(logger, args, var, TMIN, anom_type, rank):
     """Process a single fit for a single model-variable combination.
     
     Parameters
@@ -186,22 +160,16 @@ def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_match
     args: argparse.Namespace
         CLI args, needs to have
             - args.fit (fit type to pass to MLE)
-            - args.data (cmip or amip)
+            - args.no_se (whether to calc SEs)
 
     var : str
         Variable name
 
+    TMIN: int
+        starting year for MLE fit
+
     anom_type: str
         the type of anomaly (trend, raw, annmean)
-
-    m : Model object
-        Model configuration object
-
-    modelname_filepath_matcher : dict
-        Dictionary mapping model names to file paths
-
-    width : int
-        Terminal width for formatting
 
     rank : int
         MPI rank of current process
@@ -211,53 +179,61 @@ def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_match
     tuple
         (success, anom_type, output_path, error_message)
     """
+
     try:
-        logger.info(f"[Rank {rank}] Working on {var}:{m.name} - {anom_type} fit")
-        
-        fpath = modelname_filepath_matcher[m.name]
+        # import data from ERA5/landonly
+        data_path = ERA5_PATH / 'landonly'
+        fpath = data_path / f"era5_{var}_{args.grid}_landonly.nc"
+
         ds = xr.open_dataset(fpath)
-        ds_selected = ds.sel(member_id=m.primary_member)
+        ds = ds.sel(year=slice(TMIN, 2024))
 
         # mapping for data -> variable name in dataset
         try:
             var_name = ANOM_TYPE_TO_VAR[anom_type]
+            var_name = var_name if anom_type != 'raw' else 't2m'  # convert to ERA5 naming convention if using raw data
         except KeyError:
             raise ValueError(f"Unknown anom_type: {anom_type}")
-        
+
+        logger.debug(f"The anomaly type {anom_type} was converted to variable name {var_name}")
+
         # do fitting
         ds_fit = ds_mle_fit(
             args,
-            ds_selected,
+            ds,
             var_name=var_name,
             fit_dim='year'
         )
-        logger.info(f"[Rank {rank}] {anom_type} fit complete.")
 
-        # get MLE success rate; reset immediately after
-        success_rate = get_mle_success_rate()        
+        # reset MLE success counter
+        stat_success_rate = get_mle_success_rate()
         reset_mle_stats()
 
-        # store MLE success rate as a dataset attribute
-        ds_fit.attrs['MLE_success_rate'] = success_rate
+        logger.info(f"[RANK {rank}] Completed fitting for {var}:{anom_type}:{TMIN}")
+
+        # set success rate
+        ds_fit.attrs['MLE_success_rate'] = stat_success_rate
         
-        # Save dataset
+        # save dataset
         gev_dir = fpath.parent.parent / 'gev'
-        gev_name = fpath.with_name(
-            fpath.stem + f"_gev_{args.fit}_{anom_type}" + fpath.suffix
-        ).name
-        
-        output_path = gev_dir / gev_name
-        ds_fit.to_netcdf(output_path)
-        logger.info(f"[Rank {rank}] Dataset saved to: {output_path}")
-        
-        # Close datasets to save RAM
-        ds_fit.close()
+        gev_dir.mkdir(parents=True, exist_ok=True)  # ensure dir exists
+
+        logger.debug(f"[Rank {rank}] Output directory for GEV fit: {gev_dir}")
+
+        fit_fname = f"{fpath.stem}_gev_{args.fit}_TMIN{TMIN}_{anom_type}{fpath.suffix}"
+        logger.debug(f"The output path is: {gev_dir / fit_fname}")
+
+        ds_fit.to_netcdf(gev_dir / fit_fname)  # save kuiper results
+
+        # close datasets to save memory
         ds.close()
-        
-        return (True, anom_type, str(output_path), None)
-        
+        ds_fit.close()
+
+        return (True, anom_type, fit_fname, None)
+
     except Exception as e:
-        import traceback
-        error_msg = f"Error processing {var}:{m.name}:{anom_type} - {str(e)}\n{traceback.format_exc()}"
-        logger.warning(f"[Rank {rank}] {error_msg}")
+        error_msg = f"Error processing {var}:{TMIN}:{anom_type} - {str(e)}\n{traceback.format_exc()}"
+        logger.error(f"[Rank: {rank}] {error_msg}")
+
+        # return success, anomaly type, stationary fit output path, nonstationary fit output path, and error msg
         return (False, anom_type, None, error_msg)

@@ -106,9 +106,56 @@ def parse_args_mip_fit():
     parser.add_argument(
         "--member_config",
         type=str,
-        default='pr',
+        default='prim',
         choices=['prim', 'most'],
         help="Do fits for each model's primary member (primary) or all of the members for the model with the most members (most)"
+    )
+
+    parser.add_argument(
+        "--mpi",
+        action='store_true',
+        default=False,
+        help="Use MPI to paralllelize execution? (requires HPC config)"
+    )
+
+    parser.add_argument(
+        "--no_se",
+        action='store_true',
+        default=True,
+        help="Turns off standard error calculation."
+    )
+
+    parser.add_argument(
+        "--debug",
+        action='store_true',
+        default=False,
+        help="Whether to run in debug mode (more verbose logging, no parallelization)."
+    )
+
+    return parser.parse_args()
+
+def parse_args_era5_fit():
+    """Parse CLI arguments for ERA5 fitting.
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Fitting GEV distribution to climate data."
+    )
+
+    parser.add_argument(
+        "--fit",
+        type=str,
+        default='nonstat',
+        choices=['nonstat', 'stat', 'stat_fixed_xi', 'nonstat_fixed_xi_loc_only'],
+        help="The type of GEV fit to perform. Each option holds different parameters constant or assumes (non)stationary in the data"
+    )
+
+    parser.add_argument(
+        "--grid",
+        type=str,
+        default='1deg',
+        choices=['1deg', '0.5deg'],
+        help="Grid of the data to preprocess (only relevant for ERA5)"
     )
 
     parser.add_argument(
@@ -146,11 +193,3 @@ def check_fitting_config_compatability(args):
 
     # do later if it makes sense
     pass
-
-# quick test
-if __name__ == "__main__":
-    args = parse_args_pproc()
-    print(f"Args for preprocessing: {args}")
-
-    args_fit = parse_args_fitting()
-    print(f"Args for fitting: {args_fit}")
