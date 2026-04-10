@@ -46,7 +46,7 @@ def main():
     t1 = time.time()
 
     # log finish
-    logger.info("GEV fitting complete!")
+    logger.info("Kuiper statistics analysis complete!")
     logger.info(f"Total runtime: {t1 - t0:.2f}s.")
 
 if __name__ == "__main__":

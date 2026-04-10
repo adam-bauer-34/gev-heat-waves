@@ -8,5 +8,6 @@ where = ["src"]
 [project.scripts]
 pproc = "evt_heat_waves.main_pproc:main"
 fit-mip = "evt_heat_waves.main_mip_fit:main"
-fit-era5-kuper = "evt_heat_waves.main_era5_fit_and_kuiper:main"
+fit-era5 = "evt_heat_waves.main_era5_fit:main"
+kuiper-era5 = "evt_heat_waves.main_era5_kuiper:main"
 bootstrap-kuiper = "evt_heat_waves.main_kuiper_bootstrapping:main"
