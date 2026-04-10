@@ -1,3 +1,9 @@
+"""General utility functions.
+
+Adam Bauer
+UChicago
+Apr 2026
+"""
 
 import numpy as np
 import xarray as xr
@@ -6,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from evt_heat_waves.config import CMIP_PATH
+
 
 def compute_ecdf(values, extend_lower=True,
                 extend_upper=False, ub=None):
@@ -101,6 +108,7 @@ def yaml_safe(obj):
     else:
         return obj
     
+
 # Extract cmip6 model names from filenames
 def extract_model_name(filepath):
     """Extract cmip6 model name from filepath.
