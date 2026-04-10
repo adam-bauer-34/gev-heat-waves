@@ -83,8 +83,11 @@ echo "Loading Python module: python/miniforge-25.3.0"
 module load python/miniforge-25.3.0
 
 # Activate conda environment
-echo "Activating conda environment: /project/bbcael/ambauer/gev-heat-waves/.env"
-source activate /project/bbcael/ambauer/gev-heat-waves/.env
+echo "Activating conda environment: /project/bbcael/ambauer/envs/gev-heat-waves"
+source activate /project/bbcael/ambauer/envs/gev-heat-waves
+
+# Change to project directory
+cd /project/bbcael/ambauer/gev-heat-waves
 
 # Tell OpenMPI to use Slurm's process management
 export OMPI_MCA_plm=slurm
