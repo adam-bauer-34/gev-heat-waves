@@ -5,7 +5,6 @@ UChicago
 Apr 2026
 """
 
-import sys
 import shutil
 import os
 import traceback
@@ -56,10 +55,7 @@ def runner(logger, args):
         all_tasks = []
         
         for var in vars:
-            print(f"🏋🏼Setting up tasks for: {var}")
-            
-            # Make data directory if it doesn't exist
-            os.makedirs(ERA5_PATH / 'gev', exist_ok=True)
+            print(f"Setting up tasks for: {var}")
             
             # Collect tasks for this variable
             # Now we create 3 tasks per model (one for each fit type)
@@ -102,12 +98,11 @@ def runner(logger, args):
               f"{task['var']}:{task['TMIN']}:{task['anom_type']}")
         
         result = process_single_fit_and_kuiper(
-            logger=task['logger'],
+            logger=logger,
             args=task['args'],
             var=task['var'],
             TMIN=task['TMIN'],
             anom_type=task['anom_type'],
-            GRID=task['GRID'],
             rank=rank
         )
         my_results.append(result)
@@ -156,7 +151,7 @@ def runner(logger, args):
                 if not r[0]:
                     print(f"   - {r[3]}")
         
-def process_single_fit_and_kuiper(logger, args, var, TMIN, anom_type, GRID, rank):
+def process_single_kuiper(logger, args, var, TMIN, anom_type, rank):
     """Process a single fit for a single model-variable combination.
     
     Parameters
@@ -178,9 +173,6 @@ def process_single_fit_and_kuiper(logger, args, var, TMIN, anom_type, GRID, rank
     anom_type: str
         the type of anomaly (trend, raw, annmean)
 
-    grid: str
-        the grid type (e.g., "1deg" or "0.5deg")
-
     rank : int
         MPI rank of current process
         
@@ -193,15 +185,6 @@ def process_single_fit_and_kuiper(logger, args, var, TMIN, anom_type, GRID, rank
     try:
         # import data from ERA5/landonly
         data_path = ERA5_PATH / 'landonly'
-        fpath = data_path / (
-            'era5_' + var + '_' + GRID + '_landonly.nc'
-        )
-        ds = xr.open_dataset(fpath)
-        ds = ds.sel(year=slice(TMIN, 2024))
-
-        gev_dir = fpath.parent.parent / 'gev'
-
-        logger.debug(f"[Rank {rank}] Output directory for GEV fit: {gev_dir}")
 
         # mapping for data -> variable name in dataset
         try:
@@ -211,123 +194,62 @@ def process_single_fit_and_kuiper(logger, args, var, TMIN, anom_type, GRID, rank
             raise ValueError(f"Unknown anom_type: {anom_type}")
 
         logger.debug(f"The anomaly type {anom_type} was converted to variable name {var_name}")
+        
+        # try to import stationary fit dataset to use for kuiper analysis
+        # if it doesn't exist, make it using MLE fit
+        fpath = data_path / f"era5_{var}_{args.grid}_landonly_gev_stat_TMIN{TMIN}_{anom_type}.nc"
+        try:
+            ds = xr.open_dataset(fpath)
+        except FileNotFoundError:
+            logger.warning(f"Stationary fit dataset not found for {var}:{anom_type} with TMIN={TMIN}. "
+                           f"Running MLE fit to create it for kuiper analysis.")
+            ds = xr.open_dataset(data_path / f"era5_{var}_{args.grid}_landonly.nc").sel(year=slice(TMIN, 2024))
+            ds = ds_mle_fit(
+                args,
+                ds,
+                var_name=var_name,
+                fit_dim='year'
+            )
 
-        # do fitting
-        ds_fit = ds_mle_fit(
+        ds_kuiper = compute_kuiper_stats(
             args,
             ds,
             var_name=var_name,
-            fit_dim='year'
+            fit_dime='year'
         )
-
-        # reset MLE success counter
-        stat_success_rate = get_mle_success_rate()
-        reset_mle_stats()
-
-        print(f"[RANK {rank}] Completed fitting for {var}:{anom_type}:{TMIN}")
-
-        # ==================================
-        # STEP 2: COMPUTE KUIPER STATISTICS
-        # ==================================     
-        if anom_type == 'raw':
-            ds_kuiper = compute_kuiper_stats(
-                ds_stat_fit,
-                var_name='t2m'
-            )
-            var_suffix = 'raw'
-
-        elif anom_type == 'annmean':
-            ds_kuiper = compute_kuiper_stats(
-                ds_stat_fit,
-                var_name='t2m_anom_annmean'
-            )
-            var_suffix = 'annmean'            
-
-        elif anom_type == 'trend':
-            ds_kuiper = compute_kuiper_stats(
-                ds_stat_fit,
-                var_name='t2m_anom_trend'
-            )
-            var_suffix = 'trend'
-
-        else:
-            raise ValueError(f"Unknown anom_type: {anom_type}")
-
         
         # set success rate
+        stat_success_rate = get_mle_success_rate()
         ds_kuiper.attrs['MLE_success_rate'] = stat_success_rate
 
         # reset success rate for mle
         reset_mle_stats()
 
         # check: print kuiper dataset
-        print(f"[Rank {rank}]: Kuiper statistics-fitted dataset:\n {ds_kuiper}")
+        logger.debug(f"[Rank {rank}]: Kuiper statistics-fitted dataset:\n {ds_kuiper}")
         
         # save joined dataset from stationary + kuiper stats
         gev_dir = fpath.parent.parent / 'gev'
         gev_dir.mkdir(parents=True, exist_ok=True)  # ensure dir exists
+        logger.debug(f"[Rank {rank}] Output directory for GEV fit: {gev_dir}")
+        
+        kuiper_name = f"{fpath.stem}_kuiper{fpath.suffix}"
+        output_path = gev_dir / kuiper_name
 
-        kuiper_name = f"era5_{var}_{GRID}_landonly_gev_stat_TMIN{TMIN}_{var_suffix}_kuiper.nc"
-        stat_output_path = gev_dir / kuiper_name
+        logger.debug(f"The output path is: {output_path}")
 
-        print(f"The output path is: {stat_output_path}")
-
-        ds_kuiper.to_netcdf(stat_output_path)  # save kuiper results
+        ds_kuiper.to_netcdf(output_path)  # save kuiper results
 
         # close kuiper and stationary datasets after saving to keep memory abundant
         ds_kuiper.close()
-        ds_stat_fit.close()
+        ds.close()
 
-        # ==============================
-        # STEP 3: DO NONSTATIONARY FIT
-        # ==============================
-        if anom_type == 'raw':
-            ds_nonstat_fit = ds_mle_fit(
-                ds,
-                var_name='t2m',
-                fit_dim='year',
-                non_stat=True
-            )
-            var_suffix = 'raw'
-
-        elif anom_type == 'annmean':
-            ds_nonstat_fit = ds_mle_fit(
-                ds,
-                var_name='t2m_anom_annmean',
-                fit_dim='year',
-                non_stat=True
-            )
-            var_suffix = 'annmean'            
-        
-        elif anom_type == 'trend':
-            ds_nonstat_fit = ds_mle_fit(
-                ds,
-                var_name='t2m_anom_trend',
-                fit_dim='year',
-                non_stat=True
-            )
-            var_suffix = 'trend'
-        
-        else:
-            raise ValueError(f"Unknown anom_type: {anom_type}")
-        
-        # get mle success rate
-        nonstat_success_rate = get_mle_success_rate()
-        ds_nonstat_fit.attrs['MLE_success_rate'] = nonstat_success_rate
-        reset_mle_stats()
-
-        # save nonstationary dataset
-        nonstat_output_path = gev_dir / f"era5_{var}_{GRID}_landonly_gev_nonstat_TMIN{TMIN}_{var_suffix}.nc"
-        print(nonstat_output_path)
-        ds_nonstat_fit.to_netcdf(nonstat_output_path)  # save kuiper results
-
-        # close dataset
         # return success, anomaly type, stationary fit output path, nonstationary fit output path, and error msg
-        return (True, anom_type, stat_output_path, nonstat_output_path, None)
+        return (True, anom_type, output_path, None)
 
     except Exception as e:
-        error_msg = f"Error processing {var}:{anom_type} function call with TMIN={TMIN} - str{e}\n{traceback.format_exc()}"
-        print(f"Rank: {rank}] ❌ {error_msg}")
+        error_msg = f"Error processing {var}:{anom_type} function call with TMIN={TMIN} - {str(e)}\n{traceback.format_exc()}"
+        logger.error(f"Rank: {rank}] ❌ {error_msg}")
 
         # return success, anomaly type, stationary fit output path, nonstationary fit output path, and error msg
-        return (False, anom_type, None, None, error_msg)
+        return (False, anom_type, None, error_msg)

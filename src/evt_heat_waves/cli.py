@@ -182,7 +182,7 @@ def parse_args_era5_fit():
     return parser.parse_args()
 
 
-def check_fitting_config_compatability(args):
+def check_kuiper_config_compatability(args):
     """Check if dependent CLI inputs are compatable.
 
     Parameters
@@ -191,5 +191,5 @@ def check_fitting_config_compatability(args):
         CLI args
     """
 
-    # do later if it makes sense
-    pass
+    if args.fit != 'stat':
+        raise ValueError(f"For Kuiper analysis, args.fit must be 'stat' (stationary fit). Got {args.fit}.")
