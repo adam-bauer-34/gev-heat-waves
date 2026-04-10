@@ -17,6 +17,7 @@ from mpi4py import MPI
 from evt_heat_waves.config import ERA5_PATH, ANOM_TYPE_TO_VAR
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
 from evt_heat_waves.kuiper.kuiper_fitting import compute_kuiper_stats
+from evt_heat_waves.logging_utils import setup_logger
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
@@ -65,7 +66,6 @@ def runner(logger, args):
             for TMIN in tmins:
                 for anom_type in anom_types:
                     all_tasks.append({
-                        'logger': logger,
                         'args': args,
                         'var': var,
                         'TMIN': TMIN,
@@ -83,7 +83,9 @@ def runner(logger, args):
     
     # Broadcast tasks to all processes
     all_tasks = comm.bcast(all_tasks, root=0)  # set root rank to zero
-    
+    logger = setup_logger(args.debug)
+    logger.debug(f"[Rank {rank}] logger initalized successfully")
+
     # Distribute tasks using round-robin distribution
     # this is good for tasks that take about as long to take as one another
     my_tasks = [task for i, task in enumerate(all_tasks) if i % size == rank]

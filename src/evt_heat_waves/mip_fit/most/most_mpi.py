@@ -23,6 +23,7 @@ from evt_heat_waves.config import MIP_FIT_PATH_DICT, ANOM_TYPE_TO_VAR, MLE_FIT_A
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats
 from evt_heat_waves.cmip_dataclass import CMIP6EnsembleConfig
 from evt_heat_waves.utils import extract_model_name
+from evt_heat_waves.logging_utils import setup_logger
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
@@ -92,7 +93,6 @@ def runner(logger, args):
             for anom_type in anom_types:
                 for mem in CMIPConfig.ensemble_config[model_with_most].ensemble_members:
                     all_tasks.append({
-                        'logger': logger,
                         'args': args,
                         'var': var,
                         'anom_type': anom_type,
@@ -115,6 +115,8 @@ def runner(logger, args):
     
     # Broadcast tasks to all processes
     all_tasks = comm.bcast(all_tasks, root=0)
+    logger = setup_logger(args.debug)
+    logger.debug(f"[Rank {rank}] logger initalized successfully")
     
     # Distribute tasks using round-robin distribution
     my_tasks = [task for i, task in enumerate(all_tasks) if i % size == rank]
@@ -131,7 +133,7 @@ def runner(logger, args):
               f"{task['var']}:{task['anom_type']}:{task['mem']}")
         
         result = process_single_fit(
-            logger=task['logger'],
+            logger=logger,
             args=task['args'],
             var=task['var'],
             anom_type=task['anom_type'],
