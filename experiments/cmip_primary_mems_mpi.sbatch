@@ -81,6 +81,8 @@ echo "Setting up Python and MPI environments"
 echo "------------------------------------------------------------"
 
 # Load MPI module
+module unload netcdf
+module unload intelmpi
 module load openmpi
 
 # Load Python module

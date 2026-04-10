@@ -46,8 +46,8 @@ def runner(logger, args):
         
         # Define variables, stationary/nonstationary, and anomaly types to parallelize over
         vars = ['t2m_annual_max', 't2m_annual_min']
-        anom_types = ['raw', 'annmean', 'trend']
-        tmins = [1950, 1979]
+        anom_types = ['raw', 'annmean']
+        tmins = [1979]
         
         # Collect all tasks (each fit is now a separate task)
         all_tasks = []

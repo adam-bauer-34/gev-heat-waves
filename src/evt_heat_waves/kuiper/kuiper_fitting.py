@@ -78,7 +78,7 @@ def compute_kuiper_stats(ds, var_name='t2m', fit_dim='year'):
         vectorize=True,
         dask='parallelized',
         output_dtypes=[float],
-        kwargs={'N_SAMPLES': len(ds[var_name].year)}
+        kwargs={'N_SAMPLES': len(ds[var_name].year)},
         dask_gufunc_kwargs={
             'output_sizes': {'kuiper': 1}
             }
