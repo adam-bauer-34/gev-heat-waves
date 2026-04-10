@@ -134,20 +134,22 @@ def runner(logger, args):
         logger.info('-'*TERMINAL_WIDTH)
         logger.info("SUMMARY")
         logger.info('-'*TERMINAL_WIDTH)
-        logger.info(f"    Successful: {successes}/{len(flat_results)}")
-        logger.info(f"    Failed: {failures}/{len(flat_results)}")
-        logger.info(f"    Breakdown by fit type:")
+        logger.info(f"Successful: {successes}/{len(flat_results)}")
+        logger.info(f"Failed: {failures}/{len(flat_results)}")
+        logger.info(f"Breakdown by fit type:")
         for fit_type, counts in sorted(fit_type_counts.items()):
             total = counts['success'] + counts['failure']
-            logger.info(f"      - {fit_type:8s}: {counts['success']}/{total} successful")
-        logger.info(f"    Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
-        logger.info(f"    Average time per task: {elapsed/len(flat_results):.2f} seconds")
+            logger.info(f"  - {fit_type:8s}: {counts['success']}/{total} successful")
+        logger.info(f"Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+        logger.info(f"Average time per task: {elapsed/len(flat_results):.2f} seconds")
         
         if failures > 0:
-            logger.info("    Failed tasks:")
+            logger.info("Failed tasks:")
             for r in flat_results:
                 if not r[0]:
-                    logger.info(f"   - {r[3]}")
+                    logger.info(f"  - {r[3]}")
+        
+        logger.info('-' * TERMINAL_WIDTH)
         
 def process_single_fit(logger, args, var, TMIN, anom_type, rank):
     """Process a single fit for a single model-variable combination.

@@ -13,7 +13,6 @@ import xarray as xr
 
 from evt_heat_waves.config import ERA5_PATH, ANOM_TYPE_TO_VAR
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
-from evt_heat_waves.logging_utils import setup_logger
 
 TERMINAL_WIDTH = shutil.get_terminal_size(fallback=(80, 20)).columns
 
@@ -35,7 +34,7 @@ def runner(logger, args):
         vars = ['t2m_annual_max']
         anom_types = ['annmean']
         tmins = [1979]
-        
+
     else:
         vars = ['t2m_annual_max', 't2m_annual_min']
         anom_types = ['raw', 'annmean', 'trend']
