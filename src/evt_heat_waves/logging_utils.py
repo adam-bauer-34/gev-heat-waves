@@ -14,7 +14,7 @@ def get_git_hash():
     """
     try:
         git_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("utf-8").strip()
-    except Exception as e:
+    except Exception:
         git_hash = "unknown"
     return git_hash
 

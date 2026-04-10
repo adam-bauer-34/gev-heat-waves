@@ -151,6 +151,14 @@ def parse_args_era5_fit():
     )
 
     parser.add_argument(
+        "--grid",
+        type=str,
+        default='1deg',
+        choices=['1deg', '0.5deg'],
+        help="Grid of the data to preprocess (only relevant for ERA5)"
+    )
+
+    parser.add_argument(
         "--mpi",
         action='store_true',
         default=False,
