@@ -79,7 +79,7 @@ def ds_mle_fit(args, ds, var_name, fit_dim='year',
         _mle_fit,
         da,
         args.fit,
-        *ufunc_kwargs_fit
+        **ufunc_kwargs_fit
     )
 
     # assign parameter names to gev_params coordinate
@@ -105,7 +105,7 @@ def ds_mle_fit(args, ds, var_name, fit_dim='year',
             kwargs={
                 'fit_type': args.fit 
             },
-            *ufunc_kwargs_se
+            **ufunc_kwargs_se
         )
 
         # assign parameter names

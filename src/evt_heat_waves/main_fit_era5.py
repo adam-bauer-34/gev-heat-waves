@@ -38,7 +38,7 @@ def main():
     except KeyError:
         raise ValueError(f"Runner for with/without MPI doesn't exist for current setup.")
 
-    logger.info(f"Doing GEV fit and Kuiper statistics analysis for config: {args.fit}|MPI={args.mpi}")
+    logger.info(f"Doing GEV fit for config: {args.fit}|MPI={args.mpi}")
     logger.info("-" * width)
     run_fit(logger, args)
 

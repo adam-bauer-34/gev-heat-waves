@@ -9,74 +9,91 @@ import numpy as np
 import xarray as xr
 
 from scipy.stats import genextreme
-from mle_claude import _mle_fit
 from astropy.stats import kuiper
 
+from evt_heat_waves.config import MLE_FIT_ATTRS, MLE_FULL_PARAM_NAMES
+from evt_heat_waves.mle.mle import _mle_fit
 
-def compute_kuiper_stats(ds, var_name='t2m', print_summary=True):
-    """write if works
+# suffix map to get shape, loc, and scale names
+suffix_map = {
+    't2m':             'raw',
+    'tas':             'raw',
+    't2m_anom_annmean':'anom_annmean',
+    't2m_anom_trend':  'anom_trend',
+}
+
+
+def compute_kuiper_stats(ds, var_name='t2m', fit_dim='year'):
+    """Compute Kuiper statistics at each gridcell.
+
+    Parameters
+    ----------
+    ds: xarray.Dataset
+        the input dataset containing the data to fit
+
+    var_name: str
+        the variable name in the dataset to fit the GEV distribution to
+
+    fit_dim: str
+        the dimension over which to fit the GEV distribution (e.g., 'year')
+
+    Returns
+    -------
+    ds: xarray.Dataset
+        the input dataset with added GEV parameters as new variables
     """
-    if var_name == 't2m':
-        gev_append = '_raw'
-    
-    elif var_name == 't2m_anom_annmean':
-        gev_append = '_anom_annmean'
+    # subselect data
+    da = ds[var_name]
+    shapes = ds[f'shape_{suffix_map[var_name]}']
+    locs = ds[f'loc_{suffix_map[var_name]}']
+    scales = ds[f'scale_{suffix_map[var_name]}']
 
-    elif var_name == 't2m_anom_trend':
-        gev_append = "_anom_trend"
-
-    else:
-        raise ValueError(f"{var_name} argument in compute_kuiper_stats is invalid.")
+    # define ufunc dict for obs analysis
+    ufunc_kwargs_obs = dict(
+        input_core_dims=[[fit_dim], [], [], []],
+        output_core_dims=[['kuiper']],
+        vectorize=True,
+        dask='parallelized',
+        output_dtypes=[float],
+        dask_gufunc_kwargs={
+            'output_sizes': {'kuiper': 1}
+            }
+    )
 
     # compute Kuiper statistics for observed and synthetic data
     da_ko = xr.apply_ufunc(
         _kuiper,
-        ds[var_name],
-        ds['shape' + gev_append],
-        ds['loc'+ gev_append],
-        ds['scale'+ gev_append],
-        input_core_dims=[['year'], [], [], []],
-        output_core_dims=[['kuiper']],
-        vectorize=True,
-        dask='parallelize',
-        output_dtypes=[float]
+        da,
+        shapes,
+        locs,
+        scales,
+        **ufunc_kwargs_obs
     )
 
     # now handle synthetic obs + kuiper calculation.
     # first do synthetic draws via fitted distributions
-    # print("Doing synthetic bootstrapping fits + computing Kuiper statistics...")
-    da_ks = xr.apply_ufunc(
-        _kuiper_syn,
-        ds['shape'+ gev_append],
-        ds['loc'+ gev_append],
-        ds['scale'+ gev_append],
-        len(ds[var_name].year),
-        input_core_dims=[[], [], [], []],
+    ufunc_kwargs_syn = dict(
+        input_core_dims=[[], [], []],
         output_core_dims=[['kuiper']],
         vectorize=True,
-        dask='parallelize',
-        output_dtypes=[float]
+        dask='parallelized',
+        output_dtypes=[float],
+        kwargs={'N_SAMPLES': len(ds[var_name].year)}
+        dask_gufunc_kwargs={
+            'output_sizes': {'kuiper': 1}
+            }
+    )
+
+    da_ks = xr.apply_ufunc(
+        _kuiper_syn,
+        shapes,
+        locs,
+        scales,
+        **ufunc_kwargs_syn
     )
 
     # assign kuiper statistics to dataset
-    if var_name == 't2m':
-        ds = ds.assign(obs_k_raw=(('lat', 'lon'), da_ko.data[:, :, 0]))
-        ds = ds.assign(syn_k_raw=(('lat', 'lon'), da_ks.data[:, :, 0]))
-
-    elif var_name == 't2m_anom_annmean':
-        ds = ds.assign(obs_k_anom_annmean=(('lat', 'lon'), da_ko.data[:, :, 0]))
-        ds = ds.assign(syn_k_anom_annmean=(('lat', 'lon'), da_ks.data[:, :, 0]))
-
-    elif var_name == 't2m_anom_trend':
-        ds = ds.assign(obs_k_anom_trend=(('lat', 'lon'), da_ko.data[:, :, 0]))
-        ds = ds.assign(syn_k_anom_trend=(('lat', 'lon'), da_ks.data[:, :, 0]))
-
-    else:
-        raise ValueError(f"Invalid variable name {var_name}.")
-
-    if print_summary:
-        _print_summary(ds, 'obs_k', gev_append)
-        _print_summary(ds, 'syn_k', gev_append)
+    ds = _assign_kuiper(ds, var_name, da_ko, da_ks)
 
     return ds
 
@@ -94,42 +111,44 @@ def _kuiper(sample, shape, loc, scale, SAMPLE_THRES=10):
         k, _ = kuiper(sample,
                            lambda x: genextreme.cdf(x,
                                                 c=-shape, loc=loc, scale=scale))
-        return np.array([k])
+        return k
     
 
 def _kuiper_syn(shape, loc, scale, N_SAMPLES):
     if np.isnan(shape) or np.isnan(loc) or np.isnan(scale):
-        return np.full(N_SAMPLES, np.nan)
+        return np.array([np.nan])
     
     else:
         tmp_sample = genextreme.rvs(-shape, loc=loc,
                                     scale=scale, size=N_SAMPLES)
         loc_hat, scale_hat, shape_hat = _mle_fit(tmp_sample)
-        tmp_k = _kuiper(tmp_sample, shape_hat, loc_hat, scale_hat)
-        return np.array([tmp_k])
+
+        # catch if MLE fails
+        if np.isnan(loc_hat) or np.isnan(scale_hat) or np.isnan(shape_hat):
+            return np.array([np.nan])
+        
+        else:
+            tmp_k = _kuiper(tmp_sample, shape_hat, loc_hat, scale_hat)
+            return tmp_k
 
 
-def _print_summary(ds, var_name, gev_append):
-    """Print summary statistics of the Kuiper variables.
+def _assign_kuiper(ds, var_name, da_ko, da_ks):
+    """Assign Kuiper statistics for observed and synthetic data to the dataset.
+
+    Resolves the variable name suffix using the same suffix_map as
+    _assign_params, then assigns obs_k and syn_k arrays in one place
+    rather than repeating ds.assign() calls for every var_name.
     """
 
-    data = ds[var_name + gev_append].values.flatten()
-    data = data[np.isfinite(data)]  # screen nans
-    data = data[data >= 0]  # screen out -1 from ocean values
+    if var_name not in suffix_map:
+        raise ValueError(
+            f"Unknown var_name {var_name!r}. "
+            f"Expected one of: {list(suffix_map)}"
+        )
 
-    if var_name == 'obs_k':
-        print_message = f"Summary statistics for observation-based Kuiper statistics:"
+    sfx = suffix_map[var_name]
 
-    elif var_name == 'syn_k':
-        print_message =f"Summary statistics for bootstrapped, synthetic Kuiper statistics:"
+    ds = ds.assign({f'obs_k_{sfx}': (('lat', 'lon'), da_ko.data[:, :, 0])})
+    ds = ds.assign({f'syn_k_{sfx}': (('lat', 'lon'), da_ks.data[:, :, 0])})
 
-    print(print_message)
-    print("-" * 50)
-    print(f"Number of samples: {data.size}")
-    print(f"Minimum:          {np.min(data):.4f}")
-    print(f"Maximum:          {np.max(data):.4f}")
-    print(f"Mean:             {np.mean(data):.4f}")
-    print(f"Median:           {np.median(data):.4f}")
-    print(f"5th percentile:   {np.percentile(data, 5):.4f}")
-    print(f"95th percentile:  {np.percentile(data, 95):.4f}")
-    print(f"Std. deviation:   {np.std(data):.4f}")
+    return ds
