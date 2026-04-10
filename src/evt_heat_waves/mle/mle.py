@@ -146,7 +146,7 @@ def _mle_fit(data, fit_type='stat', SAMPLE_THRES=10):
     # do MLE fit
     fit = minimize(_negative_log_likelihood,
                     initial_guess,
-                    args=(data, fit_type),
+                    args=(data),
                     method='SLSQP',  # SLSQP to allow for constraints
                     constraints=cons,
                     bounds=bounds,

@@ -31,9 +31,15 @@ def runner(logger, args):
     """
     start_time = time.time()
 
-    vars = ['t2m_annual_max', 't2m_annual_min']
-    anom_types = ['raw', 'annmean', 'trend']
-    tmins = [1950, 1979]
+    if args.debug:
+        vars = ['t2m_annual_max']
+        anom_types = ['annmean']
+        tmins = [1979]
+        
+    else:
+        vars = ['t2m_annual_max', 't2m_annual_min']
+        anom_types = ['raw', 'annmean', 'trend']
+        tmins = [1950, 1979]
 
     # Collect all tasks
     all_tasks = []

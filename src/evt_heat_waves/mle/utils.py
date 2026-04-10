@@ -5,6 +5,8 @@ UChicago
 Apr 8 2026
 """
 
+import numpy as np
+
 from evt_heat_waves.config import MLE_FIT_ATTRS, MLE_FULL_PARAM_NAMES
 
 def get_bounds(fit_type):
@@ -116,4 +118,4 @@ def get_initial_guess(data):
     if missing:
         raise ValueError(f"No initial guess defined for params: {missing}")
 
-    return [guess_map[p] for p in MLE_FULL_PARAM_NAMES]
+    return np.array([guess_map[p] for p in MLE_FULL_PARAM_NAMES])

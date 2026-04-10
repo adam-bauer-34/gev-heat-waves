@@ -141,7 +141,7 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type):
 
         logger.debug(f"The anomaly type {anom_type} was converted to variable name {var_name}")
 
-        fpath = data_path / f"era5_{var}_{args.grid}_landonly_gev_stat_TMIN{TMIN}_{anom_type}.nc"
+        fpath = data_path.parent / 'gev' / f"era5_{var}_{args.grid}_landonly_gev_stat_TMIN{TMIN}_{anom_type}.nc"
         try:
             ds = xr.open_dataset(fpath)
         except FileNotFoundError:
