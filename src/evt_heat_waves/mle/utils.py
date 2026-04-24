@@ -44,7 +44,7 @@ def get_constraints(fit_type):
         type of fit. must be implemented in config.
     """
     attrs        = MLE_FIT_ATTRS[fit_type]
-    param_names  = attrs['param_names']
+    param_names  = MLE_FULL_PARAM_NAMES
     descriptors  = attrs.get('constraints', [])
     return [_make_constraint(d, param_names) for d in descriptors]
 

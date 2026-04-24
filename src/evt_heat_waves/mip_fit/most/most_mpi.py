@@ -399,7 +399,7 @@ def combine_results_into_datasets(logger, args, all_results, model_with_most, fp
         except Exception as e:
             raise KeyError(f"Error in data config for GEV fitting: {str(e)}")
         
-        gev_dir = head_data_path / var / 'gev'
+        gev_dir = head_data_path / var / 'gev' if not args.debug else head_data_path / var / 'gev_debug'
         os.makedirs(gev_dir, exist_ok=True)
         fname = f"{fpath.stem}_gev_{args.fit}_allmems_{anom_type}.nc"
         output_path = gev_dir / fname

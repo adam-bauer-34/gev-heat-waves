@@ -31,9 +31,15 @@ def runner(logger, args):
     """
     start_time = time.time()
 
-    vars = ['t2m_annual_max', 't2m_annual_min']
-    anom_types = ['raw', 'annmean', 'trend']
-    tmins = [1950, 1979]
+    if args.debug:
+        vars = ['t2m_annual_max']
+        anom_types = ['annmean']
+        tmins = [1979]
+
+    else:
+        vars = ['t2m_annual_max', 't2m_annual_min']
+        anom_types = ['raw', 'annmean', 'trend']
+        tmins = [1950, 1979]
 
     # Collect all tasks
     all_tasks = []
@@ -145,6 +151,7 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type):
         fpath = data_path.parent / 'gev' / f"era5_{var}_{args.grid}_landonly_gev_stat_TMIN{TMIN}_{anom_type}.nc"
         try:
             ds = xr.open_dataset(fpath)
+            
         except FileNotFoundError:
             logger.warning(f"Stationary fit dataset not found for {var}:{anom_type} with TMIN={TMIN}. "
                            f"Running MLE fit to create it for kuiper analysis.")
@@ -164,7 +171,7 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type):
 
         logger.debug(f"Kuiper statistics-fitted dataset:\n {ds_kuiper}")
 
-        gev_dir = fpath.parent.parent / 'gev'
+        gev_dir = fpath.parent.parent / 'gev' if not args.debug else fpath.parent.parent / 'gev_debug'
         gev_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Output directory for GEV fit: {gev_dir}")
 

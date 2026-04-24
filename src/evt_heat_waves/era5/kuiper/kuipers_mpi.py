@@ -222,7 +222,7 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type, rank):
         logger.debug(f"[Rank {rank}]: Kuiper statistics-fitted dataset:\n {ds_kuiper}")
         
         # save joined dataset from stationary + kuiper stats
-        gev_dir = fpath.parent.parent / 'gev'
+        gev_dir = fpath.parent.parent / 'gev' if not args.debug else fpath.parent.parent / 'gev_debug'
         gev_dir.mkdir(parents=True, exist_ok=True)  # ensure dir exists
         logger.debug(f"[Rank {rank}] Output directory for GEV fit: {gev_dir}")
         

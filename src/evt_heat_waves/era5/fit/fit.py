@@ -165,7 +165,7 @@ def process_single_fit(logger, args, var, TMIN, anom_type):
 
         ds_fit.attrs['MLE_success_rate'] = stat_success_rate
 
-        gev_dir = fpath.parent.parent / 'gev'
+        gev_dir = fpath.parent.parent / 'gev' if not args.debug else fpath.parent.parent / 'gev_debug'
         gev_dir.mkdir(parents=True, exist_ok=True)
 
         logger.debug(f"Output directory for GEV fit: {gev_dir}")
