@@ -19,8 +19,8 @@ from evt_heat_waves.logging_utils import setup_logger
 TERMINAL_WIDTH = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 
-def runner(logger, args):
-    """Runner for GEV fitting of CMIP data - one "primary" ensemble member
+def runner(logger, args, comm=None):
+    """Runner for GEV fitting of ERA5 data - one "primary" ensemble member
     per model.
 
     Parameters
@@ -30,10 +30,13 @@ def runner(logger, args):
     
     args: argparse.Namespace
         CLI arguments for fit details
+    
+    comm: MPI.COMM_WORLD
+        communicator object of MPI (default = None)
     """
 
     # Initialize MPI
-    comm = MPI.COMM_WORLD  # communicator object -- allows communication across tasks
+    comm = comm or MPI.COMM_WORLD  # communicator object -- allows communication across tasks
     rank = comm.Get_rank()  # gets *this* process's unique ID
     size = comm.Get_size()  # total number of processes
     

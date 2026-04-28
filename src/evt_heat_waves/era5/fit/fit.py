@@ -17,7 +17,7 @@ from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_
 TERMINAL_WIDTH = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 
-def runner(logger, args):
+def runner(logger, args, comm=None):
     """Runner for GEV fitting of ERA5 data.
 
     Parameters
@@ -27,6 +27,9 @@ def runner(logger, args):
     
     args: argparse.Namespace
         CLI arguments for fit details
+
+    comm: MPI.COMM_WORLD
+        communicator object of MPI (default = None)
     """
     start_time = time.time()
 

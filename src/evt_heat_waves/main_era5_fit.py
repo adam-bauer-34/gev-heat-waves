@@ -8,6 +8,8 @@ Apr 8, 2026
 import shutil
 import time
 
+from mpi4py import MPI
+
 from evt_heat_waves.logging_utils import setup_logger, get_git_hash
 from evt_heat_waves.cli import parse_args_era5_fit
 from evt_heat_waves.era5 import FIT_REGISTRY
@@ -16,37 +18,36 @@ width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 
 def main():
-    """Main function for GEV fitting.
-    """
-
-    # parse arguments
     args = parse_args_era5_fit()
 
-    # setup logging
-    logger = setup_logger(args.debug)
+    # Initialize MPI early if needed, otherwise use a dummy comm
+    comm = MPI.COMM_WORLD if args.mpi else None
+    rank = comm.Get_rank() if comm else 0
 
+    logger = setup_logger(args.debug)
     t0 = time.time()
 
-    # print statement for logging and reproducibility
-    logger.info("-" * width)
-    logger.info(f"Git hash: {get_git_hash()}")
+    if rank == 0:
+        logger.info("-" * width)
+        logger.info(f"Git hash: {get_git_hash()}")
+        logger.info(f"Doing GEV fit for config: {args.fit}|MPI={args.mpi}")
+        logger.info("-" * width)
 
-    # run fitting for the passed data type, member config, and w/wo MPI turned on
     try:
         run_fit = FIT_REGISTRY['mpi'] if args.mpi else FIT_REGISTRY['no_mpi']
-
     except KeyError:
-        raise ValueError(f"Runner for with/without MPI doesn't exist for current setup.")
+        raise ValueError("Runner for with/without MPI doesn't exist for current setup.")
 
-    logger.info(f"Doing GEV fit for config: {args.fit}|MPI={args.mpi}")
-    logger.info("-" * width)
-    run_fit(logger, args)
+    if args.mpi or rank == 0:
+        run_fit(logger, args, comm=comm)
 
-    t1 = time.time()
+    if comm:
+        comm.Barrier()
 
-    # log finish
-    logger.info("GEV fitting complete!")
-    logger.info(f"Total runtime: {t1 - t0:.2f}s.")
+    if rank == 0:
+        t1 = time.time()
+        logger.info("GEV fitting complete!")
+        logger.info(f"Total runtime: {t1 - t0:.2f}s.")
 
 if __name__ == "__main__":
     main()
