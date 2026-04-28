@@ -12,7 +12,6 @@ Last edited: 1/29/2026
 """
 
 import os
-import sys
 import shutil
 import time
 
@@ -20,126 +19,85 @@ import xarray as xr
 import numpy as np
 from mpi4py import MPI
 
-from config import DATA_ROOT
-from mle_claude import ds_mle_fit, reset_mle_stats
-from src.cmip_dataclass import CMIP6EnsembleConfig
-from src.utils import extract_model_name
+from evt_heat_waves.config import MIP_FIT_PATH_DICT, ANOM_TYPE_TO_VAR
+from evt_heat_waves.cmip_dataclass import CMIP6EnsembleConfig
+from evt_heat_waves.utils import extract_model_name
+from evt_heat_waves.logging_utils import setup_logger, get_git_hash
+from evt_heat_waves.cli import parse_args_mip_fit
+from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 
-def process_single_fit(var, model_with_most, mem, fpath, STAT, fit_type, width, rank):
+def process_single_fit(logger, args, var, anom_type, model_with_most, mem, fpath, rank):
     """
     Process a single fit for a single variable on the model with most members.
     
     Parameters
     ----------
+    logger: logging.Logger
+        logging object
+
+    args: argparse.Namespace
+        CLI args, needs to have
+            - args.fit (fit type to pass to MLE)
+            - args.data (cmip or amip)
+
     var : str
         Variable name
+
+    anom_type: str
+        the type of anomaly (trend, raw, annmean)
+
     model_with_most : str
         Name of model with most ensemble members
+
     mem : str
         Ensemble member identifier (e.g., 'r1i1p1f3')
+
     fpath : Path
         File path to the dataset
-    STAT : str
-        'stat' or 'nonstat' for stationary/nonstationary fitting
-    fit_type : str
-        One of 'raw', 'annmean', or 'trend'
-    width : int
-        Terminal width for formatting
+
     rank : int
         MPI rank of current process
         
     Returns
     -------
     tuple
-        (success, var, fit_type, mem, data_dict, coords_dict, attrs_dict, error_message)
+        (success, var, anom_type, mem, data_dict, coords_dict, attrs_dict, error_message)
         where data_dict is a dictionary of {var_name: numpy_array}
     """
     try:
-        print(f"[Rank {rank}] " + '-'*width)
-        print(f"[Rank {rank}] 🪛 Working on {var}:{model_with_most}:{mem} - {fit_type} fit")
-        print(f"[Rank {rank}] " + '-'*width)
+        logger.info(f"[Rank {rank}] Working on {var}:{model_with_most}:{mem} - {anom_type} fit")
+
+        # mapping for data -> variable name in dataset
+        try:
+            var_name = ANOM_TYPE_TO_VAR[anom_type]
+        except KeyError:
+            raise ValueError(f"Unknown anom_type: {anom_type}")
         
         # Open dataset
         ds = xr.open_dataset(fpath).sel(member_id=mem)
         
-        non_stat = (STAT == 'nonstat')
-        stat_type = 'non-stationary' if non_stat else 'stationary'
+        # do fitting
+        ds_fit = ds_mle_fit(
+            args,
+            ds, 
+            var_name=var_name,
+            fit_dim='year',
+            all_mems=True
+        )
+        logger.info(f"[Rank {rank}] {anom_type} fit complete for {var}:{mem}")
         
-        # Determine which fit to perform
-        if fit_type == 'raw':
-            print(f"[Rank {rank}] 🥩 Doing {stat_type} GEV fits on raw temperature data...")
-            ds_fit = ds_mle_fit(
-                ds, 
-                var_name='tas', 
-                fit_dim='year',
-                non_stat=non_stat,
-                all_mems=False
-            )
-            
-        elif fit_type == 'annmean':
-            print(f"[Rank {rank}] ⚡️ Doing {stat_type} GEV fits on temp anomalies (annual mean)...")
-            ds_fit = ds_mle_fit(
-                ds, 
-                var_name='t2m_anom_annmean', 
-                fit_dim='year',
-                non_stat=non_stat,
-                all_mems=False
-            )
-            
-        elif fit_type == 'trend':
-            print(f"[Rank {rank}] ⚡️ Doing {stat_type} GEV fits on temp anomalies (trend)...")
-            ds_fit = ds_mle_fit(
-                ds, 
-                var_name='t2m_anom_trend', 
-                fit_dim='year',
-                non_stat=non_stat,
-                all_mems=False
-            )
-        else:
-            raise ValueError(f"Unknown fit_type: {fit_type}")
-        
+        # reset stats
         reset_mle_stats()
-        
-        print(f"[Rank {rank}] ✅ {fit_type} fit complete for {var}:{mem}")
 
-        if STAT == 'nonstat':
-            if fit_type == 'raw':
-                gev_param_names = [
-                    f'loc_{fit_type}', 
-                    f'loc_t_{fit_type}',
-                    f'scale_{fit_type}', 
-                    f'scale_t_{fit_type}', 
-                    f'shape_{fit_type}', 
-                    f'shape_t_{fit_type}'
-                ]
-
-            else:
-                gev_param_names = [
-                    f'loc_anom_{fit_type}',
-                    f'loc_t_anom_{fit_type}',
-                    f'scale_anom_{fit_type}',
-                    f'scale_t_anom_{fit_type}',
-                    f'shape_anom_{fit_type}',
-                    f'shape_t_anom_{fit_type}'
-                ]
-        
-        else:
-            if fit_type == 'raw':
-                gev_param_names = [
-                    f'loc_{fit_type}', 
-                    f'scale_{fit_type}', 
-                    f'shape_{fit_type}'
-                ]
-
-            else:
-                gev_param_names = [
-                    f'loc_anom_{fit_type}',
-                    f'scale_anom_{fit_type}',
-                    f'shape_anom_{fit_type}'
-                ]
+        # build dataset variable names from config param_names + suffix
+        # suffix depends on whether this is a raw or anomaly fit
+        sfx = anom_type if anom_type == 'raw' else f'anom_{anom_type}'
+        gev_param_names = [
+            f'{p}_{sfx}' for p in MLE_FIT_ATTRS[anom_type]['param_names']
+        ]
         
         # Convert dataset to dictionary of arrays
         data_dict = {}
@@ -159,53 +117,51 @@ def process_single_fit(var, model_with_most, mem, fpath, STAT, fit_type, width, 
         ds_fit.close()
         ds.close()
         
-        return (True, var, fit_type, mem, data_dict, coords_dict, attrs_dict, None)
+        return (True, var, anom_type, mem, data_dict, coords_dict, attrs_dict, None)
         
     except Exception as e:
         import traceback
-        error_msg = f"Error processing {var}:{fit_type}:{mem} - {str(e)}\n{traceback.format_exc()}"
-        print(f"[Rank {rank}] ❌ {error_msg}")
-        return (False, var, fit_type, mem, None, None, None, error_msg)
+        error_msg = f"Error processing {var}:{anom_type}:{mem} - {str(e)}\n{traceback.format_exc()}"
+        logger.info(f"[Rank {rank}] {error_msg}")
+        return (False, var, anom_type, mem, None, None, None, error_msg)
 
 
-def combine_results_into_datasets(all_results, model_with_most, STAT, data_path_root, width):
-    """
-    Combine results from all workers into datasets organized by variable and fit_type.
+def combine_results_into_datasets(logger, args, all_results, model_with_most, fpath):
+    """Combine results from all workers into datasets organized by variable and fit_type.
     
     Parameters
     ----------
+    logger: logging.Logger
+        for printing
+
     all_results : list
         Flattened list of results from all workers
+
     model_with_most : str
         the name of the climate model we used for fitting
-    STAT : str
-        'stat' or 'nonstat'
-    data_path_root : Path
-        Root data path
-    width : int
-        Terminal width for formatting
-        
+
+    fpath : Path
+        path to data
+
     Returns
     -------
     dict
         Dictionary mapping (var, fit_type) to output file path
     """
-    print('='*width)
-    print("📦 Combining results into datasets...")
-    print('='*width)
+    logger.info("Combining results into datasets...")
     
     # Group results by (var, fit_type)
     grouped = {}
     for result in all_results:
         if result[0]:  # success
             var = result[1]
-            fit_type = result[2]
+            anom_type = result[2]
             mem = result[3]
             data_dict = result[4]
             coords_dict = result[5]
             attrs_dict = result[6]
             
-            key = (var, fit_type)
+            key = (var, anom_type)
             if key not in grouped:
                 grouped[key] = {
                     'members': [],
@@ -220,21 +176,13 @@ def combine_results_into_datasets(all_results, model_with_most, STAT, data_path_
     # Create and save datasets
     output_paths = {}
     
-    for (var, fit_type), group_data in grouped.items():
-        print(f"\n🔨 Creating dataset for {var}:{fit_type}")
+    for (var, anom_type), group_data in grouped.items():
+        logger.info(f"Creating dataset for {var}:{anom_type}")
         
         members = group_data['members']
         data_dicts = group_data['data_dicts']
         coords_dict = group_data['coords_dict']
         attrs_dict = group_data['attrs_dict']
-        
-        # Determine var_suffix for filename
-        if fit_type == 'raw':
-            var_suffix = 'raw'
-        elif fit_type == 'annmean':
-            var_suffix = 'annmean'
-        elif fit_type == 'trend':
-            var_suffix = 'trend'
         
         # Create data_vars dictionary with member_id dimension
         data_vars = {}
@@ -265,18 +213,22 @@ def combine_results_into_datasets(all_results, model_with_most, STAT, data_path_
             attrs=attrs_dict
         )
         
-        print(f"   Dataset shape: {ds_combined.dims}")
-        print(f"   Members: {len(members)}")
+        logger.info(f"   Dataset shape: {ds_combined.dims}")
+        logger.info(f"   Members: {len(members)}")
         
         # Determine output path
-        gev_dir = data_path_root / 'CMIP6' / var / 'gev'
-        os.makedirs(gev_dir, exist_ok=True)
+        try:
+            head_data_path = MIP_FIT_PATH_DICT[args.data]['data']
+        except Exception as e:
+            raise KeyError(f"Error in data config for GEV fitting: {str(e)}")
         
-        output_filename = f"tas_CMIP6_{model_with_most}_hist+ssp585_1979-2024_landonly_gev_{STAT}_allmems_{var_suffix}.nc"
-        output_path = gev_dir / output_filename
+        gev_dir = head_data_path / var / 'gev' if not args.debug else head_data_path / var / 'gev_debug'
+        os.makedirs(gev_dir, exist_ok=True)
+        fname = f"{fpath.stem}_gev_{args.fit}_allmems_{anom_type}.nc"
+        output_path = gev_dir / fname
         
         # Save dataset
-        print(f"   💾 Saving to: {output_path}")
+        logger.info(f"   Saving to: {output_path}")
         ds_combined.to_netcdf(output_path)
         
         output_paths[key] = str(output_path)
@@ -344,95 +296,105 @@ def main():
     
     # Only rank 0 does initial setup
     if rank == 0:
+        # only rank 0 does setup and distribution
+        args = parse_args_mip_fit()
+        logger = setup_logger(args.debug)
+
         start_time = time.time()
-        print('='*width)
-        print(f"🚀 Starting MPI parallel processing with {size} processes")
-        print(f"🎯 Strategy: Parallelizing over variables, fit types, and members")
-        print('='*width)
+
+        logger.info('-' * width)
+        logger.info(f"Git hash: {get_git_hash()}")
+        logger.info(f"Doing GEV fitting for config: {args.data}|{args.member_config}|MPI=True")
+
+        # extract path info
+        try:
+            head_data_path = MIP_FIT_PATH_DICT[args.data]['data']
+            config_meta_path = MIP_FIT_PATH_DICT[args.data]['config']['meta']
+            config_qc_path = MIP_FIT_PATH_DICT[args.data]['config']['qc']
+        except Exception as e:
+            raise KeyError(f"Error in data config for GEV fitting: {str(e)}")
         
         # Setup CMIP config object
-        CMIPConfig = CMIP6EnsembleConfig.from_yaml("config/meta.yaml", 
-                                                    "config/qc.yaml")
+        CMIPConfig = CMIP6EnsembleConfig.from_yaml(config_meta_path, 
+                                                   config_qc_path)
         
-        # Define variables and fit types
+        # Define variables
         vars = ['tas_annual_max', 'tas_annual_min']
-        fit_types = ['raw', 'annmean', 'trend']
+        anom_types = ['raw', 'trend', 'annmean']
         
-        # Collect all tasks (each variable-fit-member combination is a task)
+        # Collect all tasks (each fit is now a separate task)
         all_tasks = []
         
         for var in vars:
-            print('='*width)
-            print(f"🏋🏼‍♀️ Setting up tasks for: {var}")
-            print('='*width)
+            logger.info(f"Setting up tasks for: {var}")
             
             # Make data directory if it doesn't exist
-            os.makedirs(DATA_ROOT / 'CMIP6' / var / 'gev', exist_ok=True)
-            data_path = DATA_ROOT / 'CMIP6' / var / 'landonly'
+            os.makedirs(head_data_path / 'CMIP6' / var / 'gev', exist_ok=True)
+            data_path = head_data_path / 'CMIP6' / var / 'landonly'
             
             # Find model with most members
             model_with_most, fpath, n_members, tied_models = find_model_with_most_members(
                 var, CMIPConfig, data_path
             )
             
-            message = (f"🪛 Identified {model_with_most} as model with most ensemble "
+            message = (f"Identified {model_with_most} as model with most ensemble "
                       f"members (has {n_members} members).")
-            print(message)
+            logger.info(message)
             
             if tied_models:
-                print(f"Note: This model was tied with {tied_models}!")
-            
+                logger.warning(f"Note: This model was tied with {tied_models}!")
+
             # Create one task for each fit type and member for this variable
-            for fit_type in fit_types:
-                for mem in CMIPConfig.ensemble_config[model_with_most].ensemble_members:
+            for anom_type in anom_types:
+               for mem in CMIPConfig.ensemble_config[model_with_most].ensemble_members:
                     all_tasks.append({
+                        'args': args,
                         'var': var,
+                        'anom_type': anom_type,
                         'model_with_most': model_with_most,
                         'mem': mem,
                         'fpath': fpath,
-                        'STAT': STAT,
-                        'fit_type': fit_type,
-                        'width': width
+                        'rank': rank
                     })
         
-        print(f"\n📋 Total tasks to process: {len(all_tasks)}")
-        print(f"   ({len(vars)} variables × {len(fit_types)} fit types × ~{len(all_tasks)//(len(vars)*len(fit_types))} members)")
-        print(f"🖥️  Number of MPI processes: {size}")
+        logger.info(f"Total tasks to process: {len(all_tasks)}")
+        logger.info(f"Number of MPI processes: {size}")
         
         if len(all_tasks) <= size:
-            print(f"✨ All {len(all_tasks)} tasks can run simultaneously!")
+            logger.info(f"All {len(all_tasks)} tasks can run simultaneously!")
         else:
-            print(f"📊 Tasks per process: ~{len(all_tasks) / size:.1f}")
+            logger.info(f"Tasks per process: ~{len(all_tasks) / size:.1f}")
         
-        print('='*width)
     else:
         all_tasks = None
     
     # Broadcast tasks to all processes
     all_tasks = comm.bcast(all_tasks, root=0)
+    logger = setup_logger(args.debug)
+    logger.debug(f"[Rank {rank}] logger initalized successfully")
     
     # Distribute tasks using round-robin distribution
     my_tasks = [task for i, task in enumerate(all_tasks) if i % size == rank]
     
     if len(my_tasks) > 0:
-        print(f"[Rank {rank}] Processing {len(my_tasks)} tasks")
+        logger.info(f"[Rank {rank}] Processing {len(my_tasks)} tasks")
     else:
-        print(f"[Rank {rank}] No tasks assigned (more processes than tasks)")
+        logger.info(f"[Rank {rank}] No tasks assigned (more processes than tasks)")
     
     # Process assigned tasks
     my_results = []
     for task_idx, task in enumerate(my_tasks):
-        print(f"[Rank {rank}] Processing task {task_idx+1}/{len(my_tasks)}: "
-              f"{task['var']}:{task['fit_type']}:{task['mem']}")
+        logger.info(f"[Rank {rank}] Processing task {task_idx+1}/{len(my_tasks)}: "
+              f"{task['var']}:{task['anom_type']}:{task['mem']}")
         
         result = process_single_fit(
+            logger=logger,
+            args=task['args'],
             var=task['var'],
+            anom_type=task['anom_type'],
             model_with_most=task['model_with_most'],
             mem=task['mem'],
             fpath=task['fpath'],
-            STAT=task['STAT'],
-            fit_type=task['fit_type'],
-            width=task['width'],
             rank=rank
         )
         my_results.append(result)
@@ -451,7 +413,7 @@ def main():
         # Combine successful results into datasets
         if successes > 0:
             output_paths = combine_results_into_datasets(
-                flat_results, model_with_most, STAT, DATA_ROOT, width
+                logger, args, flat_results, model_with_most, fpath
             )
         else:
             output_paths = {}
@@ -472,36 +434,31 @@ def main():
         end_time = time.time()
         elapsed = end_time - start_time
         
-        print('='*width)
-        print("📊 SUMMARY")
-        print('='*width)
-        print(f"✅ Successful: {successes}/{len(flat_results)}")
-        print(f"❌ Failed: {failures}/{len(flat_results)}")
-        print(f"\nBreakdown by variable and fit type:")
+        logger.info('-'*width)
+        logger.info("SUMMARY")
+        logger.info('-'*width)
+        logger.info(f"Successful: {successes}/{len(flat_results)}")
+        logger.info(f"Failed: {failures}/{len(flat_results)}")
+        logger.info(f"Breakdown by variable and fit type:")
         for key, counts in sorted(breakdown.items()):
             total = counts['success'] + counts['failure']
-            status = "✅" if counts['success'] == total else "⚠️"
-            print(f"  {status} {key:30s}: {counts['success']}/{total}")
+            logger.info(f"  - {key:30s}: {counts['success']}/{total}")
             if key in [(k[0] + ':' + k[1]) for k in output_paths.keys()]:
                 var_key, fit_key = key.split(':')
                 path = output_paths.get((var_key, fit_key), 'N/A')
-                print(f"      📁 Output: {path}")
+                logger.info(f"  - Output: {path}")
         
-        print(f"\n⏱️  Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
-        print(f"⚡ Average time per task: {elapsed/len(flat_results):.2f} seconds")
+        logger.info(f"Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+        logger.info(f"Average time per task: {elapsed/len(flat_results):.2f} seconds")
         
         if failures > 0:
-            print("\n❌ Failed tasks:")
+            logger.info("Failed tasks:")
             for r in flat_results:
                 if not r[0]:
-                    print(f"   - {r[1]}:{r[2]}:{r[3]}")
+                    logger.info(f"  - {r[1]}:{r[2]}:{r[3]}")
                     if r[7]:  # error message
-                        print(f"     Error: {r[7][:200]}...")  # Truncate long errors
-        
-        print('='*width)
-        print("🥳 All done! 🥳")
-        print('='*width)
-
+                        logger.info(f"  - Error: {r[7][:200]}...")  # Truncate long errors
+        logger.info("-" * width)
 
 if __name__ == '__main__':
     main()
