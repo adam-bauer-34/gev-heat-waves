@@ -12,7 +12,7 @@ import time
 import xarray as xr
 
 from evt_heat_waves.config import MIP_FIT_PATH_DICT, ANOM_TYPE_TO_VAR
-from evt_heat_waves.cmip_dataclass import CMIP6EnsembleConfig
+from evt_heat_waves.mip_fit.cmip_dataclass import CMIP6EnsembleConfig
 from evt_heat_waves.utils import extract_model_name
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
 

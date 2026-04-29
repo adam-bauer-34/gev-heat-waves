@@ -14,6 +14,7 @@ from evt_heat_waves.pproc import PPROC_REGISTRY
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
+
 def main():
     """Main function for simulation setup and running.
     """

@@ -20,7 +20,7 @@ import numpy as np
 
 from evt_heat_waves.config import MIP_FIT_PATH_DICT, ANOM_TYPE_TO_VAR, MLE_FIT_ATTRS
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats
-from evt_heat_waves.cmip_dataclass import CMIP6EnsembleConfig
+from evt_heat_waves.mip_fit.cmip_dataclass import CMIP6EnsembleConfig
 from evt_heat_waves.utils import extract_model_name
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns

@@ -20,10 +20,11 @@ import numpy as np
 from mpi4py import MPI
 
 from evt_heat_waves.config import MIP_FIT_PATH_DICT, ANOM_TYPE_TO_VAR
-from evt_heat_waves.cmip_dataclass import CMIP6EnsembleConfig
+from evt_heat_waves.mip_fit.cmip_dataclass import CMIP6EnsembleConfig
 from evt_heat_waves.utils import extract_model_name
 from evt_heat_waves.logging_utils import setup_logger, get_git_hash
-from evt_heat_waves.cli import parse_args_mip_fit
+from evt_heat_waves.mip_fit.cli import parse_args_mip_fit
+
 from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
