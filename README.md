@@ -28,37 +28,72 @@ Three temperature variables are analyzed: raw annual maxima, deviations from ann
 gev-heat-waves/
 ├── src/evt_heat_waves/          # Core package
 │   ├── config.py                # Configuration & CLI utilities
-│   ├── logging.py               # Logging setup
+│   ├── logging_utils.py         # Logging configuration
 │   ├── utils.py                 # Shared utilities
-│   ├── cmip_dataclass.py        # CMIP6/AMIP metadata
-│   ├── mle/                     # GEV fitting
-│   │   ├── mle.py               # Stationary & non-stationary GEV MLE
-│   │   └── hess.py              # Uncertainty estimation
-│   ├── pproc/                   # Preprocessing
+│   ├── mle/                     # GEV MLE fitting
+│   │   ├── mle.py               # Core MLE solver
+│   │   ├── hess.py              # Hessian-based uncertainty
+│   │   ├── grad.py              # Gradient computation
+│   │   ├── se.py                # Standard error estimation
+│   │   ├── utils.py             # MLE utilities
+│   │   └── mle_claude.py        # Alternative solver
+│   ├── plotting/                # Diagnostic visualization
+│   │   ├── check_plots.py       # QC plots
+│   │   └── plotting_presets.py  # Plot configuration
+│   ├── pproc/                   # Preprocessing pipeline
+│   │   ├── cli.py               # CLI interface
+│   │   ├── main.py              # Main entry point
+│   │   ├── preprocessing.py     # Core preprocessing
 │   │   ├── pproc_era5.py        # ERA5 preprocessing
 │   │   ├── pproc_cmip.py        # CMIP6 preprocessing
 │   │   └── pproc_amip.py        # AMIP preprocessing
-│   ├── kuiper/                  # Goodness-of-fit testing
-│   │   ├── kuiper_fitting.py    # Kuiper statistic computation
-│   │   └── bootstrap.py         # Bootstrapped critical values
-│   ├── mip_fit/                 # CMIP/AMIP fitting orchestration
-│   ├── check_plots/             # Diagnostic plots
-│   └── main_*.py                # CLI entry points
+│   ├── era5/                    # ERA5-specific analysis
+│   │   ├── cli.py               # CLI interface
+│   │   ├── fit/                 # Fitting routines
+│   │   ├── kuiper/              # Kuiper goodness-of-fit
+│   │   │   ├── kuiper_fitting.py
+│   │   │   ├── bootstrap.py
+│   │   │   ├── kuipers.py
+│   │   │   └── kuipers_mpi.py
+│   │   ├── main_fit.py          # Serial fitting
+│   │   ├── main_mpi_fit.py      # MPI fitting
+│   │   ├── main_kuiper.py       # Kuiper test
+│   │   ├── main_mpi_kuiper.py   # MPI Kuiper test
+│   │   └── main_kuiper_bootstrapping.py  # Bootstrap routine
+│   └── mip_fit/                 # CMIP/AMIP orchestration
+│       ├── cli.py               # CLI interface
+│       ├── cmip_dataclass.py    # CMIP6/AMIP metadata
+│       ├── main_serial.py       # Serial fitting
+│       ├── main_mpi_prim.py     # MPI (primary members)
+│       ├── main_mpi_most.py     # MPI (most members)
+│       ├── prim/                # Primary member routines
+│       └── most/                # Most members routines
 ├── config/                      # Configuration files
 │   ├── paths.yaml               # Data paths (user-configured)
 │   ├── meta.yaml                # CMIP6 metadata
+│   ├── meta.generated.yaml      # Generated CMIP6 metadata
 │   ├── meta_amip.yaml           # AMIP metadata
-│   ├── qc.yaml                  # CMIP6 quality control
-│   ├── qc_amip.yaml             # AMIP quality control
+│   ├── meta_amip.generated.yaml # Generated AMIP metadata
+│   ├── qc.yaml                  # CMIP6 quality control flags
+│   ├── qc.generated.yaml        # Generated QC flags
+│   ├── qc_amip.yaml             # AMIP quality control flags
+│   ├── mle_attrs.yaml           # MLE attribute specifications
 │   ├── events_feat.yaml         # Featured city extremes
 │   └── events_all.yaml          # All city-level extremes
-├── experiments/                 # SLURM job scripts for HPC
+├── experiments/                 # SLURM job submission scripts
+│   ├── era5_mpi_fit.sbatch
+│   ├── era5_mpi_kuiper.sbatch
+│   ├── cmip_most_mems_mpi.sbatch
+│   ├── cmip_primary_mems_mpi.sbatch
+│   ├── amip_most_mems_mpi.sbatch
+│   ├── amip_primary_mems_mpi.sbatch
+│   └── bootstrapped_kuiper.sbatch
 ├── analysis/
 │   ├── notebooks/               # Jupyter analysis notebooks
-│   ├── scripts/                 # Standalone analysis scripts
-│   └── figs/                    # Generated figures
-├── pyproject.toml               # Package configuration
-├── gev-heat-waves.yaml          # Conda environment
+│   ├── scripts/                 # Standalone Python scripts
+│   └── dev/                     # Development notebooks
+├── pyproject.toml               # Package metadata & CLI entry points
+├── gev-heat-waves.yaml          # Conda environment specification
 └── README.md                    # This file
 ```
 
@@ -228,7 +263,7 @@ If you use this code or data in your research, please cite:
   author = {Bauer, Adam Michael},
   title = {GEV Heat Waves: Extreme Value Analysis of Heat Wave Extremes},
   url = {https://github.com/adam-bauer-34/gev-heat-waves},
-  year = {2025}
+  year = {2026}
 }
 ```
 
