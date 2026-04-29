@@ -10,10 +10,10 @@ import pandas as pd
 from scipy.stats import linregress
 from pathlib import Path
 
-from config import DATA_ROOT
-from src.utils import extract_model_name
-from src.cmip_dataclass import CMIP6EnsembleConfig
-from evt_heat_waves.check_plots.plotting_presets import get_presets
+from evt_heat_waves.config import DATA_ROOT
+from evt_heat_waves.utils import extract_model_name
+from evt_heat_waves.mip_fit.cmip_dataclass import CMIP6EnsembleConfig
+from evt_heat_waves.plotting.plotting_presets import get_presets
 from ambpy.plotutils import make_figure_filename
 
 # Setup plotting
