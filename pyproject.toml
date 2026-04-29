@@ -6,8 +6,15 @@ version = "0.1.0"
 where = ["src"]
 
 [project.scripts]
-pproc = "evt_heat_waves.main_pproc:main"
-fit-mip = "evt_heat_waves.main_mip_fit:main"
-fit-era5 = "evt_heat_waves.main_era5_fit:main"
-kuiper-era5 = "evt_heat_waves.main_era5_kuiper:main"
+pproc = "evt_heat_waves.pproc.main:main"
+
+fit-mip = "evt_heat_waves.mip_fit.main_serial:main"
+mpi-fit-mip-prim = "evt_heat_waves.mip_fit.main_mpi_prim:main"
+mpi-fit-mip-most = "evt_heat_waves.mip_fit.main_mpi_most:main"
+
+fit-era5 = "evt_heat_waves.era5.main_fit:main"
+mpi-fit-era5 = "evt_heat_waves.era5.main_mpi_fit:main"
+kuiper-era5 = "evt_heat_waves.era5.main_kuiper:main"
+mpi-kuiper-era5 = "evt_heat_waves.era5.main_mpi_kuiper:main"
+
 bootstrap-kuiper = "evt_heat_waves.main_kuiper_bootstrapping:main"
