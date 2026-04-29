@@ -12,111 +12,19 @@ Last edited: 1/29/2026
 """
 
 import os
-import sys
 import shutil
 import time
 
-import xarray as xr
 from mpi4py import MPI
 
-from evt_heat_waves.config import MIP_FIT_PATH_DICT, ANOM_TYPE_TO_VAR
-from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
+from evt_heat_waves.config import MIP_FIT_PATH_DICT
 from evt_heat_waves.mip_fit.cmip_dataclass import CMIP6EnsembleConfig
+from evt_heat_waves.mip_fit.prim.prim_mpi import process_single_fit, print_summary
 from evt_heat_waves.utils import extract_model_name
 from evt_heat_waves.logging_utils import setup_logger, get_git_hash
 from evt_heat_waves.mip_fit.cli import parse_args_mip_fit
 
-
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
-
-
-def process_single_fit(logger, args, var, anom_type, m, modelname_filepath_matcher, rank):
-    """Process a single fit for a single model-variable combination.
-    
-    Parameters
-    ----------
-    logger: logging.Logger
-        logging object
-
-    args: argparse.Namespace
-        CLI args, needs to have
-            - args.fit (fit type to pass to MLE)
-            - args.data (cmip or amip)
-
-    var : str
-        Variable name
-
-    anom_type: str
-        the type of anomaly (trend, raw, annmean)
-
-    m : Model object
-        Model configuration object
-
-    modelname_filepath_matcher : dict
-        Dictionary mapping model names to file paths
-
-    width : int
-        Terminal width for formatting
-
-    rank : int
-        MPI rank of current process
-        
-    Returns
-    -------
-    tuple
-        (success, anom_type, output_path, error_message)
-    """
-
-    try:
-        logger.info(f"[Rank {rank}] Working on {var}:{m.name} - {anom_type} fit")
-        
-        fpath = modelname_filepath_matcher[m.name]
-        ds = xr.open_dataset(fpath)
-        ds_selected = ds.sel(member_id=m.primary_member)
-
-        # mapping for data -> variable name in dataset
-        try:
-            var_name = ANOM_TYPE_TO_VAR[anom_type]
-        except KeyError:
-            raise ValueError(f"Unknown anom_type: {anom_type}")
-        
-        # do fitting
-        ds_fit = ds_mle_fit(
-            args,
-            ds_selected,
-            var_name=var_name,
-            fit_dim='year'
-        )
-        logger.info(f"[Rank {rank}] {anom_type} fit complete.")
-
-        # get MLE success rate; reset immediately after
-        success_rate = get_mle_success_rate()        
-        reset_mle_stats()
-
-        # store MLE success rate as a dataset attribute
-        ds_fit.attrs['MLE_success_rate'] = success_rate
-        
-        # Save dataset
-        gev_dir = fpath.parent.parent / 'gev' if not args.debug else fpath.parent.parent / 'gev_debug'
-        gev_name = fpath.with_name(
-            fpath.stem + f"_gev_{args.fit}_{anom_type}" + fpath.suffix
-        ).name
-        
-        output_path = gev_dir / gev_name
-        ds_fit.to_netcdf(output_path)
-        logger.info(f"[Rank {rank}] Dataset saved to: {output_path}")
-        
-        # Close datasets to save RAM
-        ds_fit.close()
-        ds.close()
-        
-        return (True, anom_type, str(output_path), None)
-
-    except Exception as e:
-        import traceback
-        error_msg = f"Error processing {var}:{m.name}:{anom_type} - {str(e)}\n{traceback.format_exc()}"
-        logger.warning(f"[Rank {rank}] {error_msg}")
-        return (False, anom_type, None, error_msg)
 
 
 def main():
@@ -243,43 +151,12 @@ def main():
         # Flatten results
         flat_results = [item for sublist in all_results for item in sublist]
         
-        # compute the number of successes and failures
-        successes = sum(1 for r in flat_results if r[0])
-        failures = sum(1 for r in flat_results if not r[0])
-        
-        # Count by fit type
-        fit_type_counts = {}
-        for r in flat_results:
-            fit_type = r[1]
-            if fit_type not in fit_type_counts:
-                fit_type_counts[fit_type] = {'success': 0, 'failure': 0}
-            if r[0]:
-                fit_type_counts[fit_type]['success'] += 1
-            else:
-                fit_type_counts[fit_type]['failure'] += 1
-        
         end_time = time.time()
         elapsed = end_time - start_time
-        
-        logger.info("-" * width)
-        logger.info("SUMMARY")
-        logger.info('-' *width)
-        logger.info(f"Successful: {successes}/{len(flat_results)}")
-        logger.info(f"Failed: {failures}/{len(flat_results)}")
-        logger.info(f"Breakdown by fit type:")
-        for fit_type, counts in sorted(fit_type_counts.items()):
-            total = counts['success'] + counts['failure']
-            logger.info(f"  - {fit_type:8s}: {counts['success']}/{total} successful")
+
+        print_summary(flat_results, logger)
         logger.info(f"Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
         logger.info(f"Average time per task: {elapsed/len(flat_results):.2f} seconds")
-        
-        if failures > 0:
-            logger.info("Failed tasks:")
-            for r in flat_results:
-                if not r[0]:
-                    logger.info(f"  - {r[3]}")
-        logger.info("-" * width)
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -81,6 +81,8 @@ echo "Setting up Python and MPI environments"
 echo "------------------------------------------------------------"
 
 # Load MPI module
+module unload netcdf
+module unload intelmpi
 module load openmpi
 
 # Load Python module
@@ -102,10 +104,9 @@ export OMPI_MCA_btl_openib_allow_ib=0
 # raises error when I try to use InfinitiBand for reasons I don't understand.
 # since this job doesn't talk much between jobs (embarassingly parallel workflow)
 # I don't mind the slower inter-chip communication.
-export OMPI_MCA_btl="tcp,self"
-
-# Generate hostfile from Slurm allocation
-export OMPI_MCA_orte_default_hostfile=$SLURM_JOB_NODELIST
+export OMPI_MCA_btl="tcp,self"  # use local ethernet
+export OMPI_MCA_coll="^hcoll"  # get rid of noisy warnings
+export OMPI_MCA_pml="^ucx"  # get rid of noisy warnings
 
 # xarray reads these variables to determine how many threads to use when an operation
 # natively does multi-threading. since cpu-per-task = 1 in our setup, tell xarray
@@ -149,7 +150,7 @@ mpirun -np $SLURM_NTASKS \
     --mca plm slurm \
     --mca btl tcp,self \
     --mca btl_base_warn_component_unused 0 \
-    python main_cmip_fitting_most_mems_mpi.py stat
+    python -m src.evt_heat_waves.mip_fit.main_mpi_most --data cmip --fit stat --debug
 
 STAT_STATUS=$?
 
