@@ -10,7 +10,7 @@
 #SBATCH --time=02:00:00
 
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=48
+#SBATCH --ntasks-per-node=33
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=3000
 
@@ -18,21 +18,62 @@
 #SBATCH --mail-user=ambauer@rcc.uchicago.edu
 
 # =================================================================================
-# CMIP GEV Fitting Job Script
+# XMIP GEV Fitting Job Script
 # How to use:
 #   1. set ntasks-per-node = # of active models. this implies each task does
 #      3 fitting routines (since there are two variables, daily max/min, which
 #      sets the number of nodes).
 #   2. make sure you don't ask for too much time or you'll sit in queue forever!
+#   
+#   NOTES:
+#     - if CMIP, -ntasks-per-node=33 (5 tasks per node)
+#     - if AMIP, -ntasks-per-node=36
+#     - see README.md for more details
 # 
 # Basic structure:
 #   1. Make log directory if it doesn't exist and relevant outfiles.
 #   2. Set up python (miniforge and ./.env) and MPI environments (using openmpi)
-#   3. Run python script(s)
-#       * NOTE: remember to change the time you ask for if you're doing `stat` and
-#         `nonstat` fits versus only one!
+#   3. Run python script
 #   4. Report exit status and close.
 # =================================================================================
+
+# =================================================================================
+# PARSE CLI ARGUMENTS
+# =================================================================================
+
+DATA_ARG=""
+FIT_ARG=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --data)
+            DATA_ARG="$2"
+            shift 2
+            ;;
+        --fit)
+            FIT_ARG="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            echo "Usage: sbatch $0 --data <arg> --fit <arg>"
+            exit 1
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [[ -z "$DATA_ARG" ]]; then
+    echo "ERROR: --data argument is required."
+    echo "Usage: sbatch $0 --data <arg> --fit <arg>"
+    exit 1
+fi
+
+if [[ -z "$FIT_ARG" ]]; then
+    echo "ERROR: --fit argument is required."
+    echo "Usage: sbatch $0 --data <arg> --fit <arg>"
+    exit 1
+fi
 
 # =================================================================================
 # OUTFILE AND LOGGING
@@ -42,6 +83,7 @@ echo "============================================================"
 echo "Starting CMIP6 GEV Fitting Job with MPI Parallelization"
 echo "============================================================"
 echo "Job started at: $(date)"
+echo "Arguments: --data ${DATA_ARG} --fit ${FIT_ARG}"
 echo ""
 
 # Ensure the logs directory exists
@@ -66,8 +108,10 @@ touch "${OUTFILE}"
     echo "Memory per CPU: $SLURM_MEM_PER_CPU MB"
     echo "Partition: $SLURM_JOB_PARTITION"
     echo ""
+    echo "CLI Arguments: --data ${DATA_ARG} --fit ${FIT_ARG}"
+    echo ""
     echo "Strategy: Each of 3 fits per model runs as independent MPI task"
-    echo "Maximum parallelism: $(($SLURM_NTASKS / 3)) models can be processed simultaneously"
+    echo "Maximum parallelism: $(($SLURM_NTASKS / 3)) fits can be processed simultaneously"
 } > "${OUTFILE}"
 
 echo "Job information saved to ${OUTFILE}"
@@ -139,29 +183,10 @@ echo ""
 # and then i tried mpirun, and it worked, so i went with what worked. sorry?
 # =============================================================================
 
-#echo "============================================================"
-#echo "Running STATIONARY GEV Fitting"
-#echo "============================================================"
-#echo "Command: srun python main_cmip_fitting_primary_mems_mpi.py stat"
-#echo "Starting at: $(date)"
-#echo ""
-
-#mpirun -np $SLURM_NTASKS \
-#    --mca plm slurm \
-#    --mca btl tcp,self \
-#    --mca btl_base_warn_component_unused 0 \
-#    python main_cmip_fitting_primary_mems_mpi.py stat
-
-STAT_STATUS=0
-echo ""
-echo "Stationary fitting completed at: $(date)"
-echo "Exit status: ${STAT_STATUS}"
-echo ""
-
 echo "============================================================"
-echo "Running NON-STATIONARY GEV Fitting"
+echo "Running main file"
 echo "============================================================"
-echo "Command: mpirun [mpi-config-stuff] python main_cmip_fitting_primary_mems_mpi.py nonstat"
+echo "Command: mpirun [mpi-config-stuff] python -m src.evt_heat_waves.mip_fit.main_mpi_prim --data ${DATA_ARG} --fit ${FIT_ARG}"
 echo "Starting at: $(date)"
 echo ""
 
@@ -174,38 +199,12 @@ mpirun -np $SLURM_NTASKS \
     --mca plm slurm \
     --mca btl tcp,self \
     --mca btl_base_warn_component_unused 0 \
-    python main_cmip_fitting_primary_mems_mpi.py nonstat
-
+    python -m src.evt_heat_waves.mip_fit.main_mpi_prim --data "${DATA_ARG}" --fit "${FIT_ARG}"
 
 # record status of previous run
-NONSTAT_STATUS=$?
+STATUS=$?
 
 echo ""
-echo "Non-stationary fitting completed at: $(date)"
-echo "Exit status: ${NONSTAT_STATUS}"
+echo "Main task completed at: $(date)"
+echo "Exit status: ${STATUS}"
 echo ""
-
-# =============================================================================
-# Job Summary
-# =============================================================================
-
-echo "============================================================"
-echo "Job Summary"
-echo "============================================================"
-echo "Stationary fit exit status: ${STAT_STATUS}"
-echo "Non-stationary fit exit status: ${NONSTAT_STATUS}"
-echo ""
-
-if [ ${STAT_STATUS} -eq 0 ] && [ ${NONSTAT_STATUS} -eq 0 ]; then
-    echo "Status: All runs completed successfully ✅"
-else
-    echo "Status: One or more runs failed ❌"
-    echo ""
-    echo "Failed runs:"
-    [ ${STAT_STATUS} -ne 0 ] && echo "  - Stationary fitting"
-    [ ${NONSTAT_STATUS} -ne 0 ] && echo "  - Non-stationary fitting"
-fi
-
-echo ""
-echo "Job finished at: $(date)"
-echo "============================================================"
