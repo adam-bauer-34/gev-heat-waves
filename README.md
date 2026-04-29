@@ -1,124 +1,103 @@
-# gev-heat-waves
+# GEV Heat Waves
 
-A Python pipeline for fitting **Generalized Extreme Value (GEV)** distributions to observed and simulated heat wave data, aggregated over space. The project supports both stationary and non-stationary GEV models, applies Kuiper goodness-of-fit tests to assess fit quality, and is designed to run at scale on HPC clusters via MPI.
+A comprehensive Python pipeline for fitting **Generalized Extreme Value (GEV)** distributions to heat wave extremes in observational and climate model data. Supports stationary and non-stationary models, Kuiper goodness-of-fit testing, and HPC-scale parallelization via MPI.
 
-**By:** Adam Michael Bauer - University of Chicago
+**Author:** Adam Michael Bauer, University of Chicago
 
 ---
 
 ## Overview
 
-This repository provides a full analysis pipeline for studying the statistical properties of heat wave extremes using Extreme Value Theory (EVT). The workflow covers:
+This project implements an end-to-end extreme value analysis pipeline for studying heat wave statistics using GEV models. The workflow includes:
 
-1. **Preprocessing** — Land-masking, regridding, and anomaly computation for ERA5 reanalysis and CMIP6/AMIP climate model data.
-2. **GEV Fitting** — Maximum likelihood estimation (MLE) of stationary and non-stationary GEV distributions at every grid point.
-3. **Kuiper Testing** — Goodness-of-fit assessment comparing observed vs. GEV-implied distributions using the Kuiper statistic.
-4. **Analysis & Visualization** — Jupyter notebooks for post-processing results and generating figures.
+- **Preprocessing** — Land masking, regridding, and anomaly computation for ERA5, CMIP6, and AMIP data
+- **GEV Fitting** — Maximum likelihood estimation of stationary and non-stationary distributions at every grid point
+- **Goodness-of-Fit Testing** — Kuiper statistic-based assessment and bootstrapped significance testing
+- **Analysis & Visualization** — Jupyter notebooks for post-processing and figure generation
 
-Data sources supported:
-- **ERA5** reanalysis (1- and 0.5-degree grids)
-- **CMIP6** multi-model ensembles (primary member or all members of the model with the most ensemble members)
-- **AMIP** runs
+Supported datasets:
+- **ERA5** reanalysis (1° and 0.5° resolution)
+- **CMIP6** multi-model ensembles (primary members or all members from the ensemble-richest model)
+- **AMIP** atmosphere-only runs
 
-Featured cities for extreme event analysis include Seattle, Mexico City, São Paulo, Lyon, Lagos, New Delhi, Moscow, Tokyo, and Melbourne.
+Three temperature variables are analyzed: raw annual maxima, deviations from annual mean, and deviations from the time-varying trend.
 
----
-
-## Repository Structure
+## Project Structure
 
 ```
 gev-heat-waves/
-├── src/evt_heat_waves/        # Core Python package
-│   ├── config.py              # Path configuration and CLI argument parsers
-│   ├── cmip_dataclass.py      # Dataclasses for CMIP6 ensemble metadata
-│   ├── logging.py             # Logging setup
-│   ├── utils.py               # Shared utility functions
-│   ├── mle/                   # GEV MLE fitting routines
-│   │   ├── mle.py             # Stationary & non-stationary GEV fitting via xarray
-│   │   └── hess.py            # Hessian-based uncertainty estimation
-│   ├── pproc/                 # Preprocessing modules
-│   │   ├── pproc_era5.py      # ERA5 preprocessing (regrid, mask, anomalies)
-│   │   ├── pproc_cmip.py      # CMIP6 preprocessing
-│   │   └── pproc_amip.py      # AMIP preprocessing
-│   ├── kuiper/                # Kuiper goodness-of-fit tests
-│   │   ├── kuiper_fitting.py  # Kuiper statistic computation
-│   │   └── bootstrap.py       # Bootstrapped Kuiper critical values
-│   ├── mip_fit/               # CMIP/AMIP fitting orchestration
-│   │   ├── cmip/              # CMIP-specific fitting routines
-│   │   └── amip/              # AMIP-specific fitting routines
-│   ├── check_plots/           # Diagnostic plots for QC
-│   ├── main_pproc.py          # CLI entry point: preprocessing
-│   ├── main_mip_fit.py        # CLI entry point: CMIP/AMIP GEV fitting
-│   ├── main_era5_fitting.py   # ERA5-specific GEV fitting script
-│   ├── main_fitting_mpi.py    # MPI-parallelized GEV fitting
-│   └── main_kuiper_bootstrapping.py  # Kuiper bootstrap entry point
-├── config/
-│   ├── paths.yaml             # Data root and output path configuration (user-defined)
-│   ├── meta.yaml              # CMIP6 ensemble metadata
-│   ├── meta_amip.yaml         # AMIP ensemble metadata
-│   ├── qc.yaml                # Quality control flags for CMIP6 models/years
-│   ├── qc_amip.yaml           # QC flags for AMIP runs
-│   ├── events_feat.yaml       # Featured city extreme event observations
-│   └── events_all.yaml        # Full set of city-level extreme events
-├── experiments/               # SLURM batch scripts for HPC execution
-│   ├── era5_fitting.sbatch
-│   ├── cmip_primary_mems_mpi.sbatch
-│   ├── cmip_most_mems_mpi.sbatch
-│   ├── amip_primary_mems_mpi.sbatch
-│   ├── amip_most_mems_mpi.sbatch
-│   ├── kuiper_mpi.sbatch
-│   └── bootstrapped_kuiper.sbatch
+├── src/evt_heat_waves/          # Core package
+│   ├── config.py                # Configuration & CLI utilities
+│   ├── logging.py               # Logging setup
+│   ├── utils.py                 # Shared utilities
+│   ├── cmip_dataclass.py        # CMIP6/AMIP metadata
+│   ├── mle/                     # GEV fitting
+│   │   ├── mle.py               # Stationary & non-stationary GEV MLE
+│   │   └── hess.py              # Uncertainty estimation
+│   ├── pproc/                   # Preprocessing
+│   │   ├── pproc_era5.py        # ERA5 preprocessing
+│   │   ├── pproc_cmip.py        # CMIP6 preprocessing
+│   │   └── pproc_amip.py        # AMIP preprocessing
+│   ├── kuiper/                  # Goodness-of-fit testing
+│   │   ├── kuiper_fitting.py    # Kuiper statistic computation
+│   │   └── bootstrap.py         # Bootstrapped critical values
+│   ├── mip_fit/                 # CMIP/AMIP fitting orchestration
+│   ├── check_plots/             # Diagnostic plots
+│   └── main_*.py                # CLI entry points
+├── config/                      # Configuration files
+│   ├── paths.yaml               # Data paths (user-configured)
+│   ├── meta.yaml                # CMIP6 metadata
+│   ├── meta_amip.yaml           # AMIP metadata
+│   ├── qc.yaml                  # CMIP6 quality control
+│   ├── qc_amip.yaml             # AMIP quality control
+│   ├── events_feat.yaml         # Featured city extremes
+│   └── events_all.yaml          # All city-level extremes
+├── experiments/                 # SLURM job scripts for HPC
 ├── analysis/
-│   ├── notebooks/             # Jupyter notebooks for figures and analysis
-│   └── scripts/               # Standalone analysis scripts
-├── pyproject.toml             # Package metadata and CLI entry points
-└── gev-heat-waves.yaml        # Conda environment specification
+│   ├── notebooks/               # Jupyter analysis notebooks
+│   ├── scripts/                 # Standalone analysis scripts
+│   └── figs/                    # Generated figures
+├── pyproject.toml               # Package configuration
+├── gev-heat-waves.yaml          # Conda environment
+└── README.md                    # This file
 ```
-
----
 
 ## Installation
 
-### 1. Clone the repository
+**Requirements:** Python 3.9+, conda, and (for HPC use) an MPI installation.
 
-```bash
-git clone -b refac https://github.com/adam-bauer-34/gev-heat-waves.git
-cd gev-heat-waves
-```
+1. **Clone the repository:**
+   ```bash
+   git clone -b refac https://github.com/adam-bauer-34/gev-heat-waves.git
+   cd gev-heat-waves
+   ```
 
-### 2. Create the conda environment
+2. **Create and activate the environment:**
+   ```bash
+   conda env create -f gev-heat-waves.yaml
+   conda activate gev-heat-waves
+   ```
+   
+   > **Note:** The environment file specifies a local `ambpy` dependency. Install it from the specified path or remove the dependency before proceeding.
 
-```bash
-conda env create -f gev-heat-waves.yaml
-conda activate gev-heat-waves
-```
+3. **Install the package:**
+   ```bash
+   pip install -e .
+   ```
 
-> **Note:** The environment file includes a local dependency on `ambpy` (a personal Python module). You will need to either install it from the specified path or remove/replace that dependency before installing.
+4. **Configure data paths:**
+   
+   Create `config/paths.yaml` with your data locations:
+   ```yaml
+   DATA_ROOT: /path/to/data          # Root directory for all data
+   FIGS_PATH: /path/to/figures       # Output directory for figures
+   ERA5_DIR:  ERA5                   # Subdirectory for ERA5 data
+   CMIP_DIR:  CMIP6                  # Subdirectory for CMIP6 data
+   AMIP_DIR:  AMIP                   # Subdirectory for AMIP data
+   STATS_DIR: stats                  # Subdirectory for outputs
+   ```
 
-### 3. Install the package
-
-```bash
-pip install -e .
-```
-
-### 4. Configure data paths
-
-Create a `config/paths.yaml` file specifying where your data lives. The expected keys are:
-
-```yaml
-DATA_ROOT: /path/to/your/data
-FIGS_PATH: /path/to/save/figures
-ERA5_DIR:  ERA5        # subdirectory under DATA_ROOT
-CMIP_DIR:  CMIP6       # subdirectory under DATA_ROOT
-AMIP_DIR:  AMIP        # subdirectory under DATA_ROOT
-STATS_DIR: stats       # subdirectory under DATA_ROOT
-```
-
----
-
-## Usage
-
-The package exposes four CLI entry points after installation.
+## Quick Start
 
 ### Preprocessing
 
@@ -130,59 +109,58 @@ pproc --data cmip
 pproc --data amip
 ```
 
-Options:
-- `--data` — Data source: `era5`, `cmip`, or `amip` (default: `era5`)
-- `--grid` — Grid resolution for ERA5: `1deg` or `0.5deg` (default: `1deg`)
-- `--make_check_plots` — Generate diagnostic plots for land masking QC
-- `--bypass-checks` — Skip manual YAML confirmation prompts
+**Options:**
+- `--data` — Data source: `era5`, `cmip`, `amip` (default: `era5`)
+- `--grid` — ERA5 resolution: `1deg`, `0.5deg` (default: `1deg`)
+- `--make_check_plots` — Generate diagnostic plots for QC
+- `--bypass-checks` — Skip confirmation prompts
 - `--debug` — Verbose logging; disables parallelization
 
 ### GEV Fitting (CMIP/AMIP)
 
-Fit stationary or non-stationary GEV distributions to CMIP6 or AMIP data:
+Fit stationary or non-stationary GEV distributions:
 
 ```bash
 fit-mip --data cmip --fit nonstat --member_config prim
 fit-mip --data amip --fit stat --member_config most --mpi
 ```
 
-Options:
+**Options:**
 - `--data` — `cmip` or `amip` (default: `cmip`)
-- `--fit` — Fit type: `stat`, `nonstat`, `stat_fixed_xi`, or `nonstat_fixed_xi_loc_only` (default: `nonstat`)
-- `--member_config` — `prim` (primary member per model) or `most` (all members of the model with the most ensemble members) (default: `prim`)
-- `--mpi` — Enable MPI parallelism for HPC execution
+- `--fit` — `stat`, `nonstat`, `stat_fixed_xi`, `nonstat_fixed_xi_loc_only` (default: `nonstat`)
+- `--member_config` — `prim` (primary) or `most` (richest ensemble) (default: `prim`)
+- `--mpi` — Enable MPI parallelization
 - `--debug` — Debug mode
 
 ### ERA5 GEV Fitting
 
-Fit GEV distributions directly to ERA5 data:
+Fit GEV distributions to ERA5 data:
 
 ```bash
-python src/evt_heat_waves/main_era5_fitting.py GRID STAT [TMIN]
+fit-era5 1deg nonstat 1979
+mpi-fit-era5 1deg stat
 ```
 
-Arguments:
-- `GRID` — Grid label (e.g., `1deg`)
-- `STAT` — `stat` for stationary or `nonstat` for non-stationary
-- `TMIN` (optional) — Start year for the analysis; defaults to the minimum year in the dataset
+**Arguments:**
+- Grid resolution (e.g., `1deg`, `0.5deg`)
+- Fit type: `stat` or `nonstat`
+- Start year (optional; defaults to dataset minimum)
 
-### Kuiper Bootstrap
+### Kuiper Goodness-of-Fit
 
-Generate bootstrapped Kuiper critical values for goodness-of-fit testing:
+Generate bootstrapped Kuiper critical values:
 
 ```bash
 bootstrap-kuiper --tmin 1979
 ```
 
-Options:
-- `--tmin` — Minimum year for the analysis interval (default: `1979`); sets the sample size as `2024 - tmin`
+**Options:**
+- `--tmin` — Minimum year; sets sample size as 2024 − tmin (default: `1979`)
 - `--debug` — Debug mode
-
----
 
 ## HPC / SLURM Execution
 
-Pre-configured SLURM batch scripts are provided in `experiments/` for running the full pipeline on a cluster with MPI. Submit jobs with:
+Pre-configured SLURM job scripts are provided in `experiments/` for cluster deployment with MPI. Submit with:
 
 ```bash
 sbatch experiments/era5_fitting.sbatch
@@ -192,68 +170,70 @@ sbatch experiments/kuiper_mpi.sbatch
 sbatch experiments/bootstrapped_kuiper.sbatch
 ```
 
-The MPI-enabled fitting scripts distribute tasks (variable × fit type × ensemble member combinations) across available processes using a round-robin scheme.
+MPI-enabled fitting distributes variable × fit type × ensemble member combinations across available processes using a round-robin scheme.
 
----
+## Analysis & Visualization
 
-## Analysis Notebooks
+Post-processing and figure generation notebooks are located in `analysis/notebooks/`:
 
-Jupyter notebooks for post-processing and figure generation are in `analysis/notebooks/`:
-
-| Notebook | Description |
-|---|---|
-| `viz_nonstat_era5_gev_analysis.ipynb` | Non-stationary GEV analysis for ERA5 |
-| `viz_nonstat_cmip_gev_analysis.ipynb` | Non-stationary GEV analysis for CMIP6 |
+| Notebook | Purpose |
+|----------|---------|
+| `viz_nonstat_era5_gev_analysis.ipynb` | Non-stationary GEV analysis (ERA5) |
+| `viz_nonstat_cmip_gev_analysis.ipynb` | Non-stationary GEV analysis (CMIP6) |
 | `viz_cmip_all_bias_corr.ipynb` | CMIP6 bias correction (all members) |
 | `viz_cmip_primary_bias_corr.ipynb` | CMIP6 bias correction (primary members) |
-| `viz_cmip_most_bias_corr.ipynb` | CMIP6 bias correction (most members model) |
-| `viz_kuiper_analysis.ipynb` | Kuiper goodness-of-fit visualization |
-| `viz_return_rates.ipynb` | Return period / return level analysis |
-| `supp_mle_perf_stats.ipynb` | MLE performance and diagnostics |
-| `supp_model_table.ipynb` | CMIP6 model summary table |
+| `viz_cmip_most_bias_corr.ipynb` | CMIP6 bias correction (ensemble-richest model) |
+| `viz_kuiper_analysis.ipynb` | Kuiper test visualization and diagnostics |
+| `viz_return_rates.ipynb` | Return period and return level analysis |
+| `supp_mle_perf_stats.ipynb` | MLE convergence and diagnostic statistics |
+| `supp_model_table.ipynb` | CMIP6 model metadata summary |
 
----
+## Technical Details
 
-## GEV Model Details
+### GEV Model
 
-The core fitting routine (`src/evt_heat_waves/mle/mle.py`) supports:
+The core fitting engine (`src/evt_heat_waves/mle/mle.py`) implements:
 
-- **Stationary GEV** — three parameters: shape (ξ), location (μ), scale (σ)
-- **Non-stationary GEV** — six parameters, with location and scale allowed to trend linearly in time
-- Fits are performed at every (lat, lon) grid point using `scipy.optimize.minimize` with `xarray.apply_ufunc` for optional Dask parallelization
-- Three temperature variables are fit for each dataset: raw annual maximum (`t2m`), anomaly relative to annual mean (`t2m_anom_annmean`), and anomaly relative to the trend in annual mean (`t2m_anom_trend`)
+- **Stationary GEV** — Three parameters: shape (ξ), location (μ), scale (σ)
+- **Non-stationary GEV** — Six parameters with location and scale trending linearly in time
+- **Optimization** — Maximum likelihood estimation via `scipy.optimize.minimize` with `xarray.apply_ufunc` for Dask-based parallelization
+- **Temperature variables** — Three variables fit independently at each grid point:
+  - Raw annual maxima (`t2m`)
+  - Anomaly relative to annual mean (`t2m_anom_annmean`)
+  - Anomaly relative to time-varying trend (`t2m_anom_trend`)
 
-Goodness-of-fit is assessed via the **Kuiper statistic** (from `astropy.stats`), comparing the empirical CDF of observed annual maxima to the fitted GEV CDF. Bootstrapped critical values are generated to assess significance.
+### Goodness-of-Fit Testing
 
----
+The **Kuiper statistic** (from `astropy.stats`) compares the empirical CDF of observed annual maxima to the fitted GEV CDF. Bootstrapped critical values enable significance assessment.
 
-## Dependencies
+### Dependencies
 
-Key dependencies (see `gev-heat-waves.yaml` for full list):
+See `gev-heat-waves.yaml` for the full environment specification. Key packages:
 
-| Package | Version |
-|---|---|
-| Python | ≥ 3.9 |
-| numpy | 1.23.5 |
-| xarray | 2022.11.0 |
-| scipy | 1.10.1 |
-| pandas | 1.5.3 |
-| dask | latest |
-| xesmf | latest |
-| cartopy | latest |
-| astropy | latest |
-| matplotlib | 3.7.0 |
-| seaborn | 0.12.2 |
-| mpi4py | 4.1.1 |
-
----
+- **Core:** Python 3.9+, numpy, xarray, scipy, pandas
+- **Geospatial:** xesmf, cartopy
+- **Parallelization:** dask, mpi4py
+- **Analysis:** astropy, matplotlib, seaborn
 
 ## License
 
-This project is licensed under the terms in the [LICENSE](LICENSE) file.
+This project is released under the MIT License. See [LICENSE](LICENSE) for details.
 
----
+## Citation
+
+If you use this code or data in your research, please cite:
+
+```bibtex
+@software{bauer_2025_gev_heat_waves,
+  author = {Bauer, Adam Michael},
+  title = {GEV Heat Waves: Extreme Value Analysis of Heat Wave Extremes},
+  url = {https://github.com/adam-bauer-34/gev-heat-waves},
+  year = {2025}
+}
+```
 
 ## Contact
 
-Adam Michael Bauer — ambauer [at] uchicago [dot] edu
+**Adam Michael Bauer**  
+University of Chicago  
+ambauer [at] uchicago [dot] edu
