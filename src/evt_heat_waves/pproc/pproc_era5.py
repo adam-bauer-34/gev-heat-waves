@@ -12,7 +12,7 @@ import xesmf as xe
 import numpy as np
 
 from evt_heat_waves.config import ERA5_PATH, FIGS_PATH
-from evt_heat_waves.check_plots.check_plots import plot_side_by_side
+from evt_heat_waves.plotting.check_plots import plot_side_by_side
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
