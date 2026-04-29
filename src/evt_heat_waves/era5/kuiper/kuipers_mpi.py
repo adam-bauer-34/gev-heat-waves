@@ -1,4 +1,4 @@
-"""Runner function for fitting GEV to ERA5 data using MPI to parallelize across many fits.
+"""Runner function for computing Kuiper statistics for ERA5 data in parallel using MPI.
 
 Adam Bauer
 UChicago
@@ -7,16 +7,18 @@ Apr 2026
 
 import shutil
 import traceback
+import time
 
 import xarray as xr
 
 from evt_heat_waves.config import ERA5_PATH, ANOM_TYPE_TO_VAR
-from evt_heat_waves.mle.mle import ds_mle_fit, reset_mle_stats, get_mle_success_rate
+from evt_heat_waves.mle.mle import ds_mle_fit
+from evt_heat_waves.era5.kuiper.kuiper_fitting import compute_kuiper_stats
 
-TERMINAL_WIDTH = shutil.get_terminal_size(fallback=(80, 20)).columns
-
+width = shutil.get_terminal_size(fallback=(80, 20)).columns
         
-def print_summary(flat_results, logger):
+
+def print_summary(flat_results, all_results, logger):
     """Print a summary of MPI task results.
 
     Parameters
@@ -42,26 +44,26 @@ def print_summary(flat_results, logger):
             fit_type_counts[fit_type]['success'] += 1
         else:
             fit_type_counts[fit_type]['failure'] += 1
-
-    logger.info('-'*TERMINAL_WIDTH)
+    
+    print('-'*width)
     logger.info("SUMMARY")
-    logger.info('-'*TERMINAL_WIDTH)
-    logger.info(f"Successful: {successes}/{len(flat_results)}")
-    logger.info(f"Failed: {failures}/{len(flat_results)}")
+    logger.info('-' * width)
+    logger.info(f"Successful: {successes}/{len(all_results)}")
+    logger.info(f"Failed: {failures}/{len(all_results)}")
     logger.info(f"Breakdown by fit type:")
     for fit_type, counts in sorted(fit_type_counts.items()):
         total = counts['success'] + counts['failure']
         logger.info(f"  - {fit_type:8s}: {counts['success']}/{total} successful")
-    
+
     if failures > 0:
         logger.info("Failed tasks:")
-        for r in flat_results:
+        for r in all_results:
             if not r[0]:
                 logger.info(f"  - {r[3]}")
-    
-    logger.info('-' * TERMINAL_WIDTH)
+    logger.info('-' * width)
         
-def process_single_fit(logger, args, var, TMIN, anom_type, rank):
+
+def process_single_kuiper(logger, args, var, TMIN, anom_type, rank):
     """Process a single fit for a single model-variable combination.
     
     Parameters
@@ -95,10 +97,6 @@ def process_single_fit(logger, args, var, TMIN, anom_type, rank):
     try:
         # import data from ERA5/landonly
         data_path = ERA5_PATH / 'landonly'
-        fpath = data_path / f"era5_{var}_{args.grid}_landonly.nc"
-
-        ds = xr.open_dataset(fpath)
-        ds = ds.sel(year=slice(TMIN, 2024))
 
         # mapping for data -> variable name in dataset
         try:
@@ -108,43 +106,54 @@ def process_single_fit(logger, args, var, TMIN, anom_type, rank):
             raise ValueError(f"Unknown anom_type: {anom_type}")
 
         logger.debug(f"The anomaly type {anom_type} was converted to variable name {var_name}")
+        
+        # try to import stationary fit dataset to use for kuiper analysis
+        # if it doesn't exist, make it using MLE fit
+        fpath = data_path / f"era5_{var}_{args.grid}_landonly_gev_stat_TMIN{TMIN}_{anom_type}.nc"
+        try:
+            ds = xr.open_dataset(fpath)
+        except FileNotFoundError:
+            logger.warning(f"Stationary fit dataset not found for {var}:{anom_type} with TMIN={TMIN}. "
+                           f"Running MLE fit to create it for kuiper analysis.")
+            ds = xr.open_dataset(data_path / f"era5_{var}_{args.grid}_landonly.nc").sel(year=slice(TMIN, 2024))
+            ds = ds_mle_fit(
+                args,
+                ds,
+                var_name=var_name,
+                fit_dim='year'
+            )
 
-        # do fitting
-        ds_fit = ds_mle_fit(
-            args,
+        # do kuiper analysis
+        ds_kuiper = compute_kuiper_stats(
             ds,
             var_name=var_name,
             fit_dim='year'
         )
-
-        # reset MLE success counter
-        stat_success_rate = get_mle_success_rate()
-        reset_mle_stats()
-
-        logger.info(f"[RANK {rank}] Completed fitting for {var}:{anom_type}:{TMIN}")
-
-        # set success rate
-        ds_fit.attrs['MLE_success_rate'] = stat_success_rate
         
-        # save dataset
-        gev_dir = fpath.parent.parent / 'gev'
+        # check: print kuiper dataset
+        logger.debug(f"[Rank {rank}]: Kuiper statistics-fitted dataset:\n {ds_kuiper}")
+        
+        # save joined dataset from stationary + kuiper stats
+        gev_dir = fpath.parent.parent / 'gev' if not args.debug else fpath.parent.parent / 'gev_debug'
         gev_dir.mkdir(parents=True, exist_ok=True)  # ensure dir exists
-
         logger.debug(f"[Rank {rank}] Output directory for GEV fit: {gev_dir}")
+        
+        kuiper_name = f"{fpath.stem}_kuiper{fpath.suffix}"
+        output_path = gev_dir / kuiper_name
 
-        fit_fname = f"{fpath.stem}_gev_{args.fit}_TMIN{TMIN}_{anom_type}{fpath.suffix}"
-        logger.debug(f"The output path is: {gev_dir / fit_fname}")
+        logger.debug(f"The output path is: {output_path}")
 
-        ds_fit.to_netcdf(gev_dir / fit_fname)  # save kuiper results
+        ds_kuiper.to_netcdf(output_path)  # save kuiper results
 
-        # close datasets to save memory
+        # close kuiper and stationary datasets after saving to keep memory abundant
+        ds_kuiper.close()
         ds.close()
-        ds_fit.close()
 
-        return (True, anom_type, fit_fname, None)
+        # return success, anomaly type, stationary fit output path, nonstationary fit output path, and error msg
+        return (True, anom_type, output_path, None)
 
     except Exception as e:
-        error_msg = f"Error processing {var}:{TMIN}:{anom_type} - {str(e)}\n{traceback.format_exc()}"
+        error_msg = f"Error processing {var}:{anom_type} function call with TMIN={TMIN} - {str(e)}\n{traceback.format_exc()}"
         logger.error(f"[Rank: {rank}] {error_msg}")
 
         # return success, anomaly type, stationary fit output path, nonstationary fit output path, and error msg

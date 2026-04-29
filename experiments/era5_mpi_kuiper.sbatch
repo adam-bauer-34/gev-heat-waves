@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=kuiper_stats
-#SBATCH --output=logs/kuiper_stats_%j.out
-#SBATCH --error=logs/kuiper_stats_%j.err
+#SBATCH --job-name=era5_kuiper
+#SBATCH --output=experiments/logs/era5_kuiper_%j.out
+#SBATCH --error=experiments/logs/era5_kuiper_%j.err
 
 #SBATCH --account=pi-bbcael
 #SBATCH --partition=caslake
@@ -10,7 +10,7 @@
 #SBATCH --time=02:00:00
 
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=
+#SBATCH --ntasks-per-node=12
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=3000
 
@@ -18,36 +18,73 @@
 #SBATCH --mail-user=ambauer@rcc.uchicago.edu
 
 # =================================================================================
-# Kuper Stats Fitting Job Script
+# ERA5 GEV Fitting Job Script
 # How to use:
-#   1. set ntasks-per-node = # vars * # anomalies * # tmins
+#   1. set ntasks-per-node = N_anomaly_types * N_tmins * N_data_types (= 12 in general)
 #   2. make sure you don't ask for too much time or you'll sit in queue forever!
-# 
+#   
 # Basic structure:
 #   1. Make log directory if it doesn't exist and relevant outfiles.
 #   2. Set up python (miniforge and ./.env) and MPI environments (using openmpi)
-#   3. Run python script(s)
+#   3. Run python script
 #   4. Report exit status and close.
 # =================================================================================
+# =================================================================================
+# PARSE CLI ARGUMENTS
+# =================================================================================
+
+FIT_ARG=""
+GRID_ARG=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --fit)
+            FIT_ARG="$2"
+            shift 2
+            ;;
+        --grid)
+            GRID_ARG="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            echo "Usage: sbatch $0 --fit <arg> --grid <arg>"
+            exit 1
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [[ -z "$FIT_ARG" ]]; then
+    echo "ERROR: --fit argument is required."
+    echo "Usage: sbatch $0 --fit <arg> --grid <arg>"
+    exit 1
+fi
+
+if [[ -z "$GRID_ARG" ]]; then
+    echo "ERROR: --grid argument is required."
+    echo "Usage: sbatch $0 --fit <arg> --grid <arg>"
+    exit 1
+fi
 
 # =================================================================================
 # OUTFILE AND LOGGING
 # =================================================================================
 
 echo "============================================================"
-echo "Starting CMIP6 GEV Fitting Job with MPI Parallelization"
+echo "Starting ERA5 GEV Fitting Job with MPI Parallelization"
 echo "============================================================"
 echo "Job started at: $(date)"
 echo ""
 
 # Ensure the logs directory exists
 echo "Checking logs directory..."
-mkdir -p logs
+mkdir -p experiments/logs
 echo "Logs directory confirmed/created."
 echo ""
 
 # Create job information file
-OUTFILE="logs/${SLURM_JOB_ID}.txt"
+OUTFILE="experiments/logs/${SLURM_JOB_ID}.txt"
 echo "Creating job information file: ${OUTFILE}"
 touch "${OUTFILE}"
 
@@ -61,6 +98,9 @@ touch "${OUTFILE}"
     echo "CPUs per task: $SLURM_CPUS_PER_TASK"
     echo "Memory per CPU: $SLURM_MEM_PER_CPU MB"
     echo "Partition: $SLURM_JOB_PARTITION"
+    echo ""
+    echo "CLI Arguments: --fit ${FIT_ARG} --grid ${GRID_ARG}"
+    echo ""
 } > "${OUTFILE}"
 
 echo "Job information saved to ${OUTFILE}"
@@ -73,9 +113,9 @@ echo "------------------------------------------------------------"
 echo "Setting up Python and MPI environments"
 echo "------------------------------------------------------------"
 
-# Load MPI module and unload stuff that conflicts
+# Load MPI module
 module unload netcdf
-module unload intelmpi 
+module unload intelmpi
 module load openmpi
 
 # Load Python module
@@ -97,10 +137,9 @@ export OMPI_MCA_btl_openib_allow_ib=0
 # raises error when I try to use InfinitiBand for reasons I don't understand.
 # since this job doesn't talk much between jobs (embarassingly parallel workflow)
 # I don't mind the slower inter-chip communication.
-export OMPI_MCA_btl="tcp,self"
-
-# Generate hostfile from Slurm allocation
-export OMPI_MCA_orte_default_hostfile=$SLURM_JOB_NODELIST
+export OMPI_MCA_btl="tcp,self"  # use local ethernet
+export OMPI_MCA_coll="^hcoll"  # get rid of noisy warnings
+export OMPI_MCA_pml="^ucx"  # get rid of noisy warnings
 
 # xarray reads these variables to determine how many threads to use when an operation
 # natively does multi-threading. since cpu-per-task = 1 in our setup, tell xarray
@@ -122,7 +161,6 @@ echo "============================================================"
 echo "Nodes allocated: $SLURM_JOB_NUM_NODES"
 echo "MPI tasks per node: $SLURM_NTASKS_PER_NODE"
 echo "Total MPI tasks: $SLURM_NTASKS"
-echo "Parallelism: Each fit 1 variable, anomaly type, and tmin"
 echo "============================================================"
 echo ""
 
@@ -133,39 +171,27 @@ echo ""
 # =============================================================================
 
 echo "============================================================"
-echo "Running parallelized Kuiper statistics script"
+echo "Running main file"
 echo "============================================================"
+echo "Command: mpirun [mpi-config-stuff] python -m src.evt_heat_waves.era5.main_mpi_kuiper --fit ${FIT_ARG} --grid ${GRID_ARG}"
 echo "Starting at: $(date)"
 echo ""
 
+# use mpirun to parallelize the code
+# first arguement tells mpirun how many tasks to do
+# set warn component unused because i hard set the code to use ethernet,
+# which is fine since i have minimal crosstalk between fitting routines
+# (i.e., my workflow is embarassingly parallel)
 mpirun -np $SLURM_NTASKS \
     --mca plm slurm \
     --mca btl tcp,self \
     --mca btl_base_warn_component_unused 0 \
-    python main_era5_fitting_kuiper_mpi.py 1deg
+    python -m src.evt_heat_waves.era5.main_mpi_kuiper --fit "${FIT_ARG}" --grid "${GRID_ARG}"
 
-KUIPER_STATUS=0
-echo ""
-echo "Kuiper statistic completed at: $(date)"
-echo "Exit status: ${STAT_STATUS}"
-echo ""
-
-# =============================================================================
-# Job Summary
-# =============================================================================
-
-echo "============================================================"
-echo "Job Summary"
-echo "============================================================"
-echo "Kuiper analysis exit status: ${KUIPER_STATUS}"
-echo ""
-
-if [ ${KUIPER_STATUS} -eq 0 ]; then
-    echo "Runs completed successfully ✅"
-else
-    echo "Runs failed ❌"
-fi
+# record status of previous run
+STATUS=$?
 
 echo ""
-echo "Job finished at: $(date)"
-echo "============================================================"
+echo "Main task completed at: $(date)"
+echo "Exit status: ${STATUS}"
+echo ""

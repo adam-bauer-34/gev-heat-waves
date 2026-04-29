@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=cmip_primary
-#SBATCH --output=logs/cmip_primary_%j.out
-#SBATCH --error=logs/cmip_primary_%j.err
+#SBATCH --output=experiments/logs/cmip_primary_%j.out
+#SBATCH --error=experiments/logs/cmip_primary_%j.err
 
 #SBATCH --account=pi-bbcael
 #SBATCH --partition=caslake
@@ -88,12 +88,12 @@ echo ""
 
 # Ensure the logs directory exists
 echo "Checking logs directory..."
-mkdir -p logs
+mkdir -p experiments/logs
 echo "Logs directory confirmed/created."
 echo ""
 
 # Create job information file
-OUTFILE="logs/${SLURM_JOB_ID}.txt"
+OUTFILE="experiments/logs/${SLURM_JOB_ID}.txt"
 echo "Creating job information file: ${OUTFILE}"
 touch "${OUTFILE}"
 
