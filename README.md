@@ -35,8 +35,7 @@ gev-heat-waves/
 │   │   ├── hess.py              # Hessian-based uncertainty
 │   │   ├── grad.py              # Gradient computation
 │   │   ├── se.py                # Standard error estimation
-│   │   ├── utils.py             # MLE utilities
-│   │   └── mle_claude.py        # Alternative solver
+│   │   └── utils.py             # MLE utilities
 │   ├── plotting/                # Diagnostic visualization
 │   │   ├── check_plots.py       # QC plots
 │   │   └── plotting_presets.py  # Plot configuration
