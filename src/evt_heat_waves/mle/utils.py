@@ -9,6 +9,7 @@ import numpy as np
 
 from evt_heat_waves.config import MLE_FIT_ATTRS, MLE_FULL_PARAM_NAMES
 
+
 def get_bounds(fit_type):
     """Return a length-6 tuple of (lo, hi) bound pairs for scipy.optimize.minimize.
 
@@ -35,6 +36,7 @@ def get_bounds(fit_type):
         for p in MLE_FULL_PARAM_NAMES
     )
 
+
 def get_constraints(fit_type):
     """Return a list of scipy constraint dicts for the given fit_type.
 
@@ -43,9 +45,10 @@ def get_constraints(fit_type):
     fit_type: str
         type of fit. must be implemented in config.
     """
-    attrs        = MLE_FIT_ATTRS[fit_type]
-    param_names  = MLE_FULL_PARAM_NAMES
-    descriptors  = attrs.get('constraints', [])
+    attrs = MLE_FIT_ATTRS[fit_type]
+    param_names = MLE_FULL_PARAM_NAMES
+    descriptors = attrs.get('constraints', [])
+
     return [_make_constraint(d, param_names) for d in descriptors]
 
 
@@ -54,16 +57,29 @@ def _make_constraint(descriptor, param_names):
 
     Parameters
     ----------
-    descriptor  : dict with keys 'type', 'fn', 'params' (list of param name strings)
-    param_names : ordered list of param names for this fit_type (from MLE_FIT_ATTRS)
+    descriptor : dict
+        Must contain:
+            - 'type'   : scipy constraint type ('eq' or 'ineq')
+            - 'fn'     : name of supported constraint function
+            - 'params' : list of parameter name strings
+
+        Optional:
+            - 'value'  : target value for set_param (defaults to 0.0)
+
+    param_names : ordered list of parameter names
+        Usually MLE_FULL_PARAM_NAMES.
 
     Supported fn values
     -------------------
-    fix_param           : forces x[i] == 0  (equality)
-    scale_positive_trend: enforces x[i0] + x[i1] >= 0  (inequality)
+    set_param
+        Forces x[i] == value using an equality constraint.
+        If 'value' is omitted, defaults to 0.0.
+
+    scale_positive_trend
+        Enforces x[i0] + x[i1] >= 0 using an inequality constraint.
     """
     fn_name = descriptor['fn']
-    ctype   = descriptor['type']
+    ctype = descriptor['type']
 
     # resolve param names -> indices using the ordered param_names list
     try:
@@ -73,13 +89,27 @@ def _make_constraint(descriptor, param_names):
             f"Constraint param not found in param_names {param_names}: {e}"
         )
 
-    if fn_name == 'fix_param':
-        return {'type': ctype, 'fun': lambda x, i=idx[0]: x[i]}
+    if fn_name == 'set_param':
+        if ctype != 'eq':
+            raise ValueError(
+                "set_param must use constraint type 'eq'"
+            )
+
+        target = descriptor.get('value', 0.0)
+
+        return {
+            'type': ctype,
+            'fun': lambda x, i=idx[0], t=target: x[i] - t
+        }
 
     if fn_name == 'scale_positive_trend':
-        return {'type': ctype, 'fun': lambda x, i=idx: x[i[0]] + x[i[1]]}
+        return {
+            'type': ctype,
+            'fun': lambda x, i=idx: x[i[0]] + x[i[1]]
+        }
 
     raise ValueError(f"Unknown constraint fn: {fn_name!r}")
+
 
 def get_initial_guess(data):
     """Get an initial guess for the MLE optimization using the moments of the data.
@@ -88,7 +118,7 @@ def get_initial_guess(data):
     ----------
     data: (N_years,) array-like
         temperature data
-    
+
     Returns
     -------
     init_guess: (6,) array-like
@@ -100,9 +130,9 @@ def get_initial_guess(data):
     samp_mean = np.mean(data)
     samp_std = np.std(data)
 
-    scale_guess = samp_std * np.sqrt(6) / np.pi  # initial guess for scale
-    loc_guess = samp_mean + scale_guess * EULER_CONST  # initial guess for loc
-    shape_guess = -0.1  # initial guess for shape
+    scale_guess = samp_std * np.sqrt(6) / np.pi
+    loc_guess = samp_mean + scale_guess * EULER_CONST
+    shape_guess = -0.1
 
     guess_map = {
         'loc': loc_guess,

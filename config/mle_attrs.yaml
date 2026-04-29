@@ -41,6 +41,10 @@ fit:
     constraints:
       - type: eq
         fn: fix_param
+        params: ['shape']
+        value: -0.5
+      - type: eq
+        fn: fix_param
         params: ['loc_t']
       - type: eq
         fn: fix_param
