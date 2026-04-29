@@ -3,9 +3,9 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 
-from config import DATA_ROOT
-from src.utils import compute_ecdf
-from evt_heat_waves.check_plots.plotting_presets import get_presets
+from evt_heat_waves.config import DATA_ROOT
+from evt_heat_waves.utils import compute_ecdf
+from evt_heat_waves.plotting.plotting_presets import get_presets
 from ambpy.plotutils import make_figure_filename
 
 presets, _ = get_presets(markers=False)
