@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=amip_most
-#SBATCH --output=logs/amip_most_%j.out
-#SBATCH --error=logs/amip_most_%j.err
+#SBATCH --output=experiments/logs/amip_most_%j.out
+#SBATCH --error=experiments/logs/amip_most_%j.err
 
 #SBATCH --account=pi-bbcael
 #SBATCH --partition=caslake
@@ -46,7 +46,7 @@ echo ""
 
 # Ensure the logs directory exists
 echo "Checking logs directory..."
-mkdir -p logs
+mkdir -p experiments/logs
 echo "Logs directory confirmed/created."
 echo ""
 

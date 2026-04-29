@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=cmip_most
-#SBATCH --output=experiments/logs/cmip_most_%j.out
-#SBATCH --error=experiments/logs/cmip_most_%j.err
+#SBATCH --job-name=era5_fit
+#SBATCH --output=experiments/logs/era5_fit_%j.out
+#SBATCH --error=experiments/logs/era5_fit_%j.err
 
 #SBATCH --account=pi-bbcael
 #SBATCH --partition=caslake
@@ -10,36 +10,69 @@
 #SBATCH --time=02:00:00
 
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=48
+#SBATCH --ntasks-per-node=12
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=3500
+#SBATCH --mem-per-cpu=3000
 
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=ambauer@rcc.uchicago.edu
 
 # =================================================================================
-# CMIP GEV Fitting Job Script
+# ERA5 GEV Fitting Job Script
 # How to use:
-#   1. set ntasks-per-node = # of members for model with most. This implies each task
-#      does 6 fitting routines (since there are two variables, daily max/min, and 3 types
-#      of anomalies).
+#   1. set ntasks-per-node = N_anomaly_types * N_tmins * N_data_types (= 12 in general)
 #   2. make sure you don't ask for too much time or you'll sit in queue forever!
-# 
+#   
 # Basic structure:
 #   1. Make log directory if it doesn't exist and relevant outfiles.
 #   2. Set up python (miniforge and ./.env) and MPI environments (using openmpi)
-#   3. Run python script(s)
-#       * NOTE: remember to change the time you ask for if you're doing `stat` and
-#         `nonstat` fits versus only one!
+#   3. Run python script
 #   4. Report exit status and close.
 # =================================================================================
+# =================================================================================
+# PARSE CLI ARGUMENTS
+# =================================================================================
+
+FIT_ARG=""
+GRID_ARG=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --fit)
+            FIT_ARG="$2"
+            shift 2
+            ;;
+        --grid)
+            GRID_ARG="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            echo "Usage: sbatch $0 --fit <arg> --grid <arg>"
+            exit 1
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [[ -z "$FIT_ARG" ]]; then
+    echo "ERROR: --fit argument is required."
+    echo "Usage: sbatch $0 --fit <arg> --grid <arg>"
+    exit 1
+fi
+
+if [[ -z "$GRID_ARG" ]]; then
+    echo "ERROR: --grid argument is required."
+    echo "Usage: sbatch $0 --fit <arg> --grid <arg>"
+    exit 1
+fi
 
 # =================================================================================
 # OUTFILE AND LOGGING
 # =================================================================================
 
 echo "============================================================"
-echo "Starting CMIP6 GEV Fitting Job with MPI Parallelization"
+echo "Starting ERA5 GEV Fitting Job with MPI Parallelization"
 echo "============================================================"
 echo "Job started at: $(date)"
 echo ""
@@ -66,8 +99,8 @@ touch "${OUTFILE}"
     echo "Memory per CPU: $SLURM_MEM_PER_CPU MB"
     echo "Partition: $SLURM_JOB_PARTITION"
     echo ""
-    echo "Strategy: Each of 6 fits per model runs as independent MPI task"
-    echo "Maximum parallelism: $(($SLURM_NTASKS / 6)) fits can be processed simultaneously"
+    echo "CLI Arguments: --fit ${FIT_ARG} --grid ${GRID_ARG}"
+    echo ""
 } > "${OUTFILE}"
 
 echo "Job information saved to ${OUTFILE}"
@@ -128,8 +161,6 @@ echo "============================================================"
 echo "Nodes allocated: $SLURM_JOB_NUM_NODES"
 echo "MPI tasks per node: $SLURM_NTASKS_PER_NODE"
 echo "Total MPI tasks: $SLURM_NTASKS"
-echo "Parallelism: Each fit (3) for each variable (2) is an independent MPI task"
-echo "Max models processed simultaneously: $(($SLURM_NTASKS / 6))"
 echo "============================================================"
 echo ""
 
@@ -139,30 +170,10 @@ echo ""
 # and then i tried mpirun, and it worked, so i went with what worked. sorry?
 # =============================================================================
 
-#echo "============================================================"
-#echo "Running STATIONARY GEV Fitting"
-#echo "============================================================"
-#echo "Command: srun python main_cmip_fitting_primary_mems_mpi.py stat"
-#echo "Starting at: $(date)"
-#echo ""
-
-mpirun -np $SLURM_NTASKS \
-    --mca plm slurm \
-    --mca btl tcp,self \
-    --mca btl_base_warn_component_unused 0 \
-    python -m src.evt_heat_waves.mip_fit.main_mpi_most --data cmip --fit stat --debug
-
-STAT_STATUS=$?
-
-echo ""
-echo "Stationary fitting completed at: $(date)"
-echo "Exit status: ${STAT_STATUS}"
-echo ""
-
 echo "============================================================"
-echo "Running NON-STATIONARY GEV Fitting"
+echo "Running main file"
 echo "============================================================"
-echo "Command: mpirun [mpi-config-stuff] python main_cmip_fitting_primary_mems_mpi.py nonstat"
+echo "Command: mpirun [mpi-config-stuff] python -m src.evt_heat_waves.era5.main_mpi_fit --fit ${FIT_ARG} --grid ${GRID_ARG}"
 echo "Starting at: $(date)"
 echo ""
 
@@ -171,42 +182,16 @@ echo ""
 # set warn component unused because i hard set the code to use ethernet,
 # which is fine since i have minimal crosstalk between fitting routines
 # (i.e., my workflow is embarassingly parallel)
-#mpirun -np $SLURM_NTASKS \
-#    --mca plm slurm \
-#    --mca btl tcp,self \
-#    --mca btl_base_warn_component_unused 0 \
-#    python main_cmip_fitting_most_mems_mpi.py nonstat
-
+mpirun -np $SLURM_NTASKS \
+    --mca plm slurm \
+    --mca btl tcp,self \
+    --mca btl_base_warn_component_unused 0 \
+    python -m src.evt_heat_waves.era5.main_mpi_fit --fit "${FIT_ARG}" --grid "${GRID_ARG}"
 
 # record status of previous run
-NONSTAT_STATUS=0
+STATUS=$?
 
 echo ""
-echo "Non-stationary fitting completed at: $(date)"
-echo "Exit status: ${NONSTAT_STATUS}"
+echo "Main task completed at: $(date)"
+echo "Exit status: ${STATUS}"
 echo ""
-
-# =============================================================================
-# Job Summary
-# =============================================================================
-
-echo "============================================================"
-echo "Job Summary"
-echo "============================================================"
-echo "Stationary fit exit status: ${STAT_STATUS}"
-echo "Non-stationary fit exit status: ${NONSTAT_STATUS}"
-echo ""
-
-if [ ${STAT_STATUS} -eq 0 ] && [ ${NONSTAT_STATUS} -eq 0 ]; then
-    echo "Status: All runs completed successfully ✅"
-else
-    echo "Status: One or more runs failed ❌"
-    echo ""
-    echo "Failed runs:"
-    [ ${STAT_STATUS} -ne 0 ] && echo "  - Stationary fitting"
-    [ ${NONSTAT_STATUS} -ne 0 ] && echo "  - Non-stationary fitting"
-fi
-
-echo ""
-echo "Job finished at: $(date)"
-echo "============================================================"

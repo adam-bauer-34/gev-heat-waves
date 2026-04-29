@@ -57,8 +57,8 @@ def main():
                                                    config_qc_path)
         
         # Define variables
-        vars = ['tas_annual_max', 'tas_annual_min']
-        anom_types = ['raw', 'trend', 'annmean']
+        vars = ['tas_annual_max']
+        anom_types = ['raw']
         
         # Collect all tasks (each fit is now a separate task)
         all_tasks = []
