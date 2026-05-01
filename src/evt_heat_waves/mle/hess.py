@@ -3,10 +3,12 @@ negative log likelihood function.
 
 Adam Michael Bauer
 UChicago
-Last edited: 4/6/2026
+Last edited: 4/30/2026, 7:35 PM CST
 """
 
 import numpy as np
+
+from evt_heat_waves.config import MLE_FIT_ATTRS
 
 
 def get_hessian_stat(theta_opt, temps):
@@ -45,6 +47,42 @@ def get_hessian_stat(theta_opt, temps):
     hess[2, 1] = hess[1, 2]  # Hessian is symmetric
 
     hess[2, 2] = np.sum(_get_dshape2(temps, loc, scale, shape))
+
+    return hess
+
+def get_hessian_stat_fix_shape(theta_opt, temps):
+    """Compute the Hessian matrix for the stationary GEV fit.
+
+    Parameters
+    ----------
+    theta_opt: (2,) array-like
+        The optimal MLE parameters (loc, scale)
+
+    temps: (N_years,) array-like
+        temperature data used for MLE fitting
+
+    Returns
+    -------
+    hess: (2, 2) array
+        The Hessian of the negative log likelihood function for the stationary GEV fit
+    """
+
+    hess = np.zeros((len(theta_opt), len(theta_opt)))
+    loc, scale = theta_opt  # unpack parameters
+
+    # set shape value based on the constraint
+    for cons in MLE_FIT_ATTRS['stat_fix_shape']['constraints']:
+        if cons['params'][0] == 'shape':
+            shape = cons['value']
+
+    # compute the Hessian using analytical formulas for the second derivatives
+    # of the negative log likelihood function for the stationary GEV distribution
+    hess[0, 0] = np.sum(_get_dloc2(temps, loc, scale, shape))
+
+    hess[0, 1] = np.sum(_get_dloc_dscale(temps, loc, scale, shape))
+    hess[1, 0] = hess[0, 1]  # Hessian is symmetric
+
+    hess[1, 1] = np.sum(_get_dscale2(temps, loc, scale, shape))
 
     return hess
 

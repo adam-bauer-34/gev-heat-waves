@@ -219,4 +219,3 @@ config/paths.yaml
 
 # ignore batch files
 logs/
-test*

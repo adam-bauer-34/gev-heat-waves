@@ -3,6 +3,8 @@
 Adam Bauer
 UChicago
 Apr 9, 2026
+
+Last edited: 4/30/2026, 7:37 PM CST
 """
 
 import numpy as np

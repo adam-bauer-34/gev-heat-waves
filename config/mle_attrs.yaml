@@ -23,14 +23,17 @@ fit:
       shape: [-1.0, 1.0]
     constraints:
       - type: eq
-        fn: fix_param
+        fn: set_param
         params: ['loc_t']
+        value: 0.0
       - type: eq
-        fn: fix_param
+        fn: set_param
         params: ['scale_t']
+        value: 0.0
       - type: eq
-        fn: fix_param
+        fn: set_param
         params: ['shape_t']
+        value: 0.0
 
   stat_fix_shape:
     N_params: 2
@@ -40,18 +43,21 @@ fit:
       scale: [0.0,  null]
     constraints:
       - type: eq
-        fn: fix_param
+        fn: set_param
         params: ['shape']
         value: -0.5
       - type: eq
-        fn: fix_param
+        fn: set_param
         params: ['loc_t']
+        value: 0.0
       - type: eq
-        fn: fix_param
+        fn: set_param
         params: ['scale_t']
+        value: 0.0
       - type: eq
-        fn: fix_param
+        fn: set_param
         params: ['shape_t']
+        value: 0.0
 
   nonstat_only_loc_trend_fix_shape:
     N_params: 3
@@ -65,5 +71,10 @@ fit:
         fn: scale_positive_trend
         params: ['scale', 'scale_t']
       - type: eq
-        fn: fix_param
+        fn: set_param
         params: ['shape_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['scale_t']
+        value: 0.0
