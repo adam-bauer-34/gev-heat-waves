@@ -35,6 +35,27 @@ fit:
         params: ['shape_t']
         value: 0.0
 
+  stat_new:
+    N_params: 3
+    param_names: ['loc', 'scale', 'shape']
+    bounds:
+      loc:   [null, null]
+      scale: [0.0,  null]
+      shape: [-0.5, 0.0]
+    constraints:
+      - type: eq
+        fn: set_param
+        params: ['loc_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['scale_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['shape_t']
+        value: 0.0
+
   stat_fix_shape:
     N_params: 2
     param_names: ['loc', 'scale']
@@ -59,13 +80,14 @@ fit:
         params: ['shape_t']
         value: 0.0
 
-  nonstat_only_loc_trend_fix_shape:
-    N_params: 3
-    param_names: ['loc', 'loc_t', 'scale']
+  nonstat_only_loc_trend:
+    N_params: 4
+    param_names: ['loc', 'loc_t', 'scale', 'shape']
     bounds:
       loc:   [null, null]
       loc_t: [null, null]
       scale: [0.0,  null]
+      shape: [-0.5, 0.0]
     constraints:
       - type: ineq
         fn: scale_positive_trend
@@ -74,6 +96,24 @@ fit:
         fn: set_param
         params: ['shape_t']
         value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['scale_t']
+        value: 0.0
+
+  nonstat_only_loc_and_shape_trend:
+    N_params: 4
+    param_names: ['loc', 'loc_t', 'scale', 'scale_t', 'shape']
+    bounds:
+      loc:   [null, null]
+      loc_t: [null, null]
+      scale: [0.0,  null]
+      scale_t: [null,  null]
+      shape: [-0.5, 0.0]
+    constraints:
+      - type: ineq
+        fn: scale_positive_trend
+        params: ['scale', 'scale_t']
       - type: eq
         fn: set_param
         params: ['scale_t']

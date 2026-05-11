@@ -2,7 +2,6 @@
 
 Adam Bauer
 UChicago
-Apr 2026
 
 Last edited: 4/30/2026, 7:37 PM CST
 """
