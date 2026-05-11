@@ -8,7 +8,7 @@ GEV to
 - negative log-likelihood of GEV distribution
 - GEV PDF
 
-Last edited: 2/6/2026, 1:24 PM CST
+Last edited: 4/30/2026, 5:12 PM CST
 """
 
 import warnings
@@ -212,7 +212,7 @@ def _negative_log_likelihood(params, data):
 
 
 def _gev_pdf(x, loc, scale, shape,
-                 ret_nan=False, pen=np.exp(-50)):
+                 ret_nan=False, pen=np.exp(-40)):
     """Compute the PDF of the GEV distribution at some point x.
 
     Function returns the PDF value at point x for parameters (loc, scale, shape),

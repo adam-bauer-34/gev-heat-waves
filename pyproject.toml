@@ -18,3 +18,7 @@ kuiper-era5 = "evt_heat_waves.era5.main_kuiper:main"
 mpi-kuiper-era5 = "evt_heat_waves.era5.main_mpi_kuiper:main"
 
 bootstrap-kuiper = "evt_heat_waves.main_kuiper_bootstrapping:main"
+
+test-nonstat = "evt_heat_waves.mle.tests.nonstat:main"
+test-stat = "evt_heat_waves.mle.tests.stat:main"
+test-stat-fix-shape = "evt_heat_waves.mle.tests.stat_fix_shape:main"

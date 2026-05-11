@@ -3,6 +3,8 @@
 Adam Bauer
 UChicago
 Jan 2026
+
+Last edited: 4/30/2026, 5:03 PM CST
 """
 
 import yaml

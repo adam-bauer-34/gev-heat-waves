@@ -1,3 +1,5 @@
+Last edited: 4/30/2026, 7:40 PM CST
+
 # GEV Heat Waves
 
 A comprehensive Python pipeline for fitting **Generalized Extreme Value (GEV)** distributions to heat wave extremes in observational and climate model data. Supports stationary and non-stationary models, Kuiper goodness-of-fit testing, and HPC-scale parallelization via MPI.
