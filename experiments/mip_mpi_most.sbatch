@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=cmip_primary
-#SBATCH --output=experiments/logs/cmip_primary_%j.out
-#SBATCH --error=experiments/logs/cmip_primary_%j.err
+#SBATCH --job-name=cmip_most
+#SBATCH --output=experiments/logs/cmip_most_%j.out
+#SBATCH --error=experiments/logs/cmip_most_%j.err
 
 #SBATCH --account=pi-bbcael
 #SBATCH --partition=caslake

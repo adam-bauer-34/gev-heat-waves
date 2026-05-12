@@ -49,7 +49,7 @@ def main():
         all_tasks = []
         
         for var in vars:
-            print(f"Setting up tasks for: {var}")
+            logger.info(f"Setting up tasks for: {var}")
             
             # Collect tasks for this variable
             # Now we create 3 tasks per model (one for each fit type)
@@ -62,9 +62,9 @@ def main():
                         'anom_type': anom_type
                     })
         
-        print(f"Total tasks to process: {len(all_tasks)}")
-        print(f"Number of MPI processes: {size}")
-        print(f"Tasks per process: ~{len(all_tasks) / size:.1f}")
+        logger.info(f"Total tasks to process: {len(all_tasks)}")
+        logger.info(f"Number of MPI processes: {size}")
+        logger.info(f"Tasks per process: ~{len(all_tasks) / size:.1f}")
     
     # other workers are idle while all of this gets setup since I/O and task setup
     # is not easily parallelizable
@@ -73,14 +73,14 @@ def main():
     
     # Broadcast tasks to all processes
     all_tasks = comm.bcast(all_tasks, root=0)  # set root rank to zero
-    logger = setup_logger(args.debug)
+    logger = setup_logger(True)
     logger.debug(f"[Rank {rank}] logger initalized successfully")
 
     # Distribute tasks using round-robin distribution
     # this is good for tasks that take about as long to take as one another
     my_tasks = [task for i, task in enumerate(all_tasks) if i % size == rank]
     
-    print(f"[Rank {rank}] Processing {len(my_tasks)} tasks")
+    logger.info(f"[Rank {rank}] Processing {len(my_tasks)} tasks")
     
     # Process assigned tasks
     ## each task runs this independently, since it is embarrassingly parallelizable
@@ -88,7 +88,7 @@ def main():
     
     # loop through tasks for this rank and perform operations...
     for task_idx, task in enumerate(my_tasks):
-        print(f"[Rank {rank}] Processing task {task_idx+1}/{len(my_tasks)}: "
+        logger.info(f"[Rank {rank}] Processing task {task_idx+1}/{len(my_tasks)}: "
               f"{task['var']}:{task['TMIN']}:{task['anom_type']}")
         
         result = process_single_kuiper(

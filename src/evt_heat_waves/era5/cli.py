@@ -89,5 +89,5 @@ def check_kuiper_config_compatability(args):
         CLI args
     """
 
-    if args.fit != 'stat':
-        raise ValueError(f"For Kuiper analysis, args.fit must be 'stat' (stationary fit). Got {args.fit}.")
+    if args.fit != 'stat' and args.fit != 'stat_new' and args.fit != 'stat_lax':
+        raise ValueError(f"For Kuiper analysis, args.fit must be 'stat', 'stat_new', or 'stat_lax'. Got {args.fit}.")

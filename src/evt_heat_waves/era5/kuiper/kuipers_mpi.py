@@ -96,7 +96,8 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type, rank):
 
     try:
         # import data from ERA5/landonly
-        data_path = ERA5_PATH / 'landonly'
+        landonly_path = ERA5_PATH / 'landonly'
+        gev_path = ERA5_PATH / 'gev'
 
         # mapping for data -> variable name in dataset
         try:
@@ -109,13 +110,15 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type, rank):
         
         # try to import stationary fit dataset to use for kuiper analysis
         # if it doesn't exist, make it using MLE fit
-        fpath = data_path / f"era5_{var}_{args.grid}_landonly_gev_stat_TMIN{TMIN}_{anom_type}.nc"
+        fpath = gev_path / f"era5_{var}_{args.grid}_landonly_gev_{args.fit}_TMIN{TMIN}_{anom_type}.nc"
+        logger.debug(f"[Rank {rank}] Attempting to open stationary fit dataset for {var}:{anom_type} with TMIN={TMIN} at path: {fpath}")
         try:
             ds = xr.open_dataset(fpath)
+            logger.debug(f"Successfully opened stationary fit dataset for {var}:{anom_type} with TMIN={TMIN} at path: {fpath}")
         except FileNotFoundError:
             logger.warning(f"Stationary fit dataset not found for {var}:{anom_type} with TMIN={TMIN}. "
                            f"Running MLE fit to create it for kuiper analysis.")
-            ds = xr.open_dataset(data_path / f"era5_{var}_{args.grid}_landonly.nc").sel(year=slice(TMIN, 2024))
+            ds = xr.open_dataset(landonly_path / f"era5_{var}_{args.grid}_landonly.nc").sel(year=slice(TMIN, 2024))
             ds = ds_mle_fit(
                 args,
                 ds,
