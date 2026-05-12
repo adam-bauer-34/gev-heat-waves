@@ -61,13 +61,13 @@ def parse_args_era5_fit():
         "--mpi",
         action='store_true',
         default=False,
-        help="Use MPI to paralllelize execution? (requires HPC config)"
+        help="[DEPRECIATED] Use MPI to paralllelize execution? (requires HPC config)"
     )
 
     parser.add_argument(
         "--no_se",
         action='store_true',
-        default=True,
+        default=False,
         help="Turns off standard error calculation."
     )
 

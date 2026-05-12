@@ -40,7 +40,7 @@ def main():
         
         # Define variables, stationary/nonstationary, and anomaly types to parallelize over
         vars = ['t2m_annual_max', 't2m_annual_min']
-        anom_types = ['raw', 'annmean']
+        anom_types = ['raw', 'trend', 'annmean']
         tmins = [1979, 1950]
         
         # Collect all tasks (each fit is now a separate task)
