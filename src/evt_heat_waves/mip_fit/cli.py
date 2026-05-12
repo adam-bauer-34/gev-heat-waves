@@ -27,8 +27,7 @@ def parse_args_mip_fit():
     parser.add_argument(
         "--fit",
         type=str,
-        default='nonstat',
-        choices=['nonstat', 'stat', 'stat_fixed_xi', 'nonstat_fixed_xi_loc_only'],
+        default='stat_new',
         help="The type of GEV fit to perform. Each option holds different parameters constant or assumes (non)stationary in the data"
     )
 
@@ -37,7 +36,7 @@ def parse_args_mip_fit():
         type=str,
         default='prim',
         choices=['prim', 'most'],
-        help="Do fits for each model's primary member (primary) or all of the members for the model with the most members (most)"
+        help="[serial only!] Do fits for each model's primary member (primary) or all of the members for the model with the most members (most)"
     )
 
     parser.add_argument(
@@ -58,7 +57,7 @@ def parse_args_mip_fit():
         "--debug",
         action='store_true',
         default=False,
-        help="Whether to run in debug mode (more verbose logging, no parallelization)."
+        help="Whether to run in debug mode."
     )
 
     return parser.parse_args()

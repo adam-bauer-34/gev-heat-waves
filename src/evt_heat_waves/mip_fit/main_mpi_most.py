@@ -57,8 +57,8 @@ def main():
                                                    config_qc_path)
         
         # Define variables
-        vars = ['tas_annual_max']
-        anom_types = ['raw']
+        vars = ['tas_annual_max', 'tas_annual_min']
+        anom_types = ['raw', 'trend', 'annmean']
         
         # Collect all tasks (each fit is now a separate task)
         all_tasks = []
@@ -67,8 +67,8 @@ def main():
             logger.info(f"Setting up tasks for: {var}")
             
             # Make data directory if it doesn't exist
-            os.makedirs(head_data_path / 'CMIP6' / var / 'gev', exist_ok=True)
-            data_path = head_data_path / 'CMIP6' / var / 'landonly'
+            os.makedirs(head_data_path / var / 'gev', exist_ok=True)
+            data_path = head_data_path / var / 'landonly'
             
             # Find model with most members
             model_with_most, fpath, n_members, tied_models = find_model_with_most_members(
@@ -81,6 +81,16 @@ def main():
             
             if tied_models:
                 logger.warning(f"Note: This model was tied with {tied_models}!")
+
+                # if there's a tie, manually select MIROC6 if it's available
+                if 'MIROC6' in tied_models:
+                    from evt_heat_waves.utils import extract_model_name
+                    fnames = [f for f in data_path.glob("*_landonly.nc")]
+                    model_with_most = 'MIROC6'
+                    fpath = {extract_model_name(f): f for f in fnames}['MIROC6']
+                    logger.info("Tiebreaker: selected MIROC6 for consistency with CMIP6")
+                else:
+                    logger.warning("No MIROC6 in tied models, proceeding with first choice")
 
             # Create one task for each fit type and member for this variable
             for anom_type in anom_types:
@@ -108,7 +118,7 @@ def main():
     
     # Broadcast tasks to all processes
     all_tasks = comm.bcast(all_tasks, root=0)
-    logger = setup_logger(args.debug)
+    logger = setup_logger()
     logger.debug(f"[Rank {rank}] logger initalized successfully")
     
     # Distribute tasks using round-robin distribution

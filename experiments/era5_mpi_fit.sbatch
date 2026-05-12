@@ -186,7 +186,7 @@ mpirun -np $SLURM_NTASKS \
     --mca plm slurm \
     --mca btl tcp,self \
     --mca btl_base_warn_component_unused 0 \
-    python -m src.evt_heat_waves.era5.main_mpi_fit --fit "${FIT_ARG}" --grid "${GRID_ARG}"
+    python -m src.evt_heat_waves.era5.main_mpi_fit --fit "${FIT_ARG}" --grid "${GRID_ARG}" --debug
 
 # record status of previous run
 STATUS=$?

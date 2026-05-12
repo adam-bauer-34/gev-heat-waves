@@ -10,6 +10,7 @@ from .hess import get_hessian_nonstat_only_loc_trend
 HESS_REGISTRY = {
     'stat': get_hessian_stat,
     'stat_new': get_hessian_stat,
+    'stat_lax': get_hessian_stat,
     'nonstat': get_hessian_nonstat,
     'stat_fix_shape': get_hessian_stat_fix_shape,
     'nonstat_only_loc_trend': get_hessian_nonstat_only_loc_trend

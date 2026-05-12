@@ -7,10 +7,10 @@
 #SBATCH --account=pi-bbcael
 #SBATCH --partition=caslake
 
-#SBATCH --time=02:00:00
+#SBATCH --time=03:00:00
 
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=33
+#SBATCH --ntasks-per-node=48
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=3000
 
@@ -24,11 +24,6 @@
 #      3 fitting routines (since there are two variables, daily max/min, which
 #      sets the number of nodes).
 #   2. make sure you don't ask for too much time or you'll sit in queue forever!
-#   
-#   NOTES:
-#     - if CMIP, -ntasks-per-node=33 (5 tasks per node)
-#     - if AMIP, -ntasks-per-node=36
-#     - see README.md for more details
 # 
 # Basic structure:
 #   1. Make log directory if it doesn't exist and relevant outfiles.

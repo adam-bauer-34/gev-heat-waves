@@ -7,7 +7,7 @@
 #SBATCH --account=pi-bbcael
 #SBATCH --partition=caslake
 
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=48
@@ -24,11 +24,6 @@
 #      3 fitting routines (since there are two variables, daily max/min, which
 #      sets the number of nodes).
 #   2. make sure you don't ask for too much time or you'll sit in queue forever!
-#   
-#   NOTES:
-#     - if CMIP, -ntasks-per-node=33 (5 tasks per node)
-#     - if AMIP, -ntasks-per-node=36
-#     - see README.md for more details
 # 
 # Basic structure:
 #   1. Make log directory if it doesn't exist and relevant outfiles.
@@ -186,7 +181,7 @@ echo ""
 echo "============================================================"
 echo "Running main file"
 echo "============================================================"
-echo "Command: mpirun [mpi-config-stuff] python -m src.evt_heat_waves.mip_fit.main_mpi_prim --data ${DATA_ARG} --fit ${FIT_ARG}"
+echo "Command: mpirun [mpi-config-stuff] python -m src.evt_heat_waves.mip_fit.main_mpi_most --data ${DATA_ARG} --fit ${FIT_ARG}"
 echo "Starting at: $(date)"
 echo ""
 
@@ -199,7 +194,7 @@ mpirun -np $SLURM_NTASKS \
     --mca plm slurm \
     --mca btl tcp,self \
     --mca btl_base_warn_component_unused 0 \
-    python -m src.evt_heat_waves.mip_fit.main_mpi_prim --data "${DATA_ARG}" --fit "${FIT_ARG}"
+    python -m src.evt_heat_waves.mip_fit.main_mpi_most --data "${DATA_ARG}" --fit "${FIT_ARG}"
 
 # record status of previous run
 STATUS=$?

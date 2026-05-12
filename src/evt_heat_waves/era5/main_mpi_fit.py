@@ -71,7 +71,7 @@ def main():
     
     # Broadcast tasks to all processes
     all_tasks = comm.bcast(all_tasks, root=0)  # set root rank to zero
-    logger = setup_logger(args.debug)
+    logger = setup_logger()
     logger.debug(f"[Rank {rank}] logger initalized successfully")
     
     # Distribute tasks using round-robin distribution

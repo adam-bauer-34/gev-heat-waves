@@ -44,8 +44,7 @@ def parse_args_era5_fit():
     parser.add_argument(
         "--fit",
         type=str,
-        default='nonstat',
-        choices=['nonstat', 'stat', 'stat_fixed_xi', 'nonstat_fixed_xi_loc_only'],
+        default='stat_new',
         help="The type of GEV fit to perform. Each option holds different parameters constant or assumes (non)stationary in the data"
     )
 

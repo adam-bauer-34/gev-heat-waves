@@ -56,6 +56,27 @@ fit:
         params: ['shape_t']
         value: 0.0
 
+  stat_lax:
+    N_params: 3
+    param_names: ['loc', 'scale', 'shape']
+    bounds:
+      loc:   [null, null]
+      scale: [0.0,  null]
+      shape: [-1.0, 0.0]
+    constraints:
+      - type: eq
+        fn: set_param
+        params: ['loc_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['scale_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['shape_t']
+        value: 0.0
+
   stat_fix_shape:
     N_params: 2
     param_names: ['loc', 'scale']

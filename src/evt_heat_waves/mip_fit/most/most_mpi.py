@@ -62,6 +62,7 @@ def process_single_fit(logger, args, var, anom_type, model_with_most, mem, fpath
         (success, var, anom_type, mem, data_dict, coords_dict, attrs_dict, error_message)
         where data_dict is a dictionary of {var_name: numpy_array}
     """
+    
     try:
         logger.info(f"[Rank {rank}] Working on {var}:{model_with_most}:{mem} - {anom_type} fit")
 
