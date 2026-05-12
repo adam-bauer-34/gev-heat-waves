@@ -13,7 +13,7 @@ import xarray as xr
 
 from evt_heat_waves.config import ERA5_PATH, ANOM_TYPE_TO_VAR
 from evt_heat_waves.mle.mle import ds_mle_fit
-from evt_heat_waves.kuiper.kuiper_fitting import compute_kuiper_stats
+from evt_heat_waves.era5.kuiper.kuiper_fitting import compute_kuiper_stats
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
