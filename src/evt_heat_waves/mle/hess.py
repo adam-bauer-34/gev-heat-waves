@@ -86,7 +86,8 @@ def get_hessian_stat_fix_shape(theta_opt, temps):
 
     return hess
 
-def get_hessian_loc_trend(theta_opt, temps):
+
+def get_hessian_nonstat_only_loc_trend(theta_opt, temps):
     """Get the Hessian matrix when there is a trend in the location parameter only.
 
     Parameters
