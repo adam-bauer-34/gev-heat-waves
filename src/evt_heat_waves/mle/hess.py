@@ -71,7 +71,7 @@ def get_hessian_stat_fix_shape(theta_opt, temps):
     loc, scale = theta_opt  # unpack parameters
 
     # set shape value based on the constraint
-    for cons in MLE_FIT_ATTRS['stat_fix_shape']['constraints']:
+    for cons in MLE_FIT_ATTRS['stat_gumbel']['constraints']:
         if cons['params'][0] == 'shape':
             shape = cons['value']
 
@@ -83,6 +83,58 @@ def get_hessian_stat_fix_shape(theta_opt, temps):
     hess[1, 0] = hess[0, 1]  # Hessian is symmetric
 
     hess[1, 1] = np.sum(_get_dscale2(temps, loc, scale, shape))
+
+    return hess
+
+
+def get_hessian_nonstat_only_loc_trend_fix_shape(theta_opt, temps):
+    """Get the Hessian matrix when there is a trend in the location parameter only.
+
+    Parameters
+    ----------
+    theta_opt: (3,) array-like
+        The optimal MLE parameters (loc, loc_t, scale)
+
+    temps: (N_years,) array-like
+        temperature data used for MLE fitting
+
+    Returns
+    -------
+    hess: (3, 3) array
+        The Hessian of the negative log likelihood function for the loc trend-only GEV fit
+    """
+
+    # setup
+    hess = np.zeros((len(theta_opt), len(theta_opt)))
+    loc0, loc_t, scale = theta_opt  # unpack parameters
+    years = np.arange(0, len(temps), 1) / len(temps)  # make normalized time variable 
+    loc = loc0 + loc_t * years  # compute location parameter at each time point
+
+    # set shape value based on the constraint
+    for cons in MLE_FIT_ATTRS['nonstat_gumbel_only_loc_trend']['constraints']:
+        if cons['params'][0] == 'shape':
+            shape = cons['value']
+
+    # comput the Hessian using analytical formulas for the second derivatives
+    ## sub block with loc0 and loc_t
+    ## diagonals 
+    hess[0, 0] = np.sum(_get_dloc2(temps, loc, scale, shape))
+    hess[1, 1] = np.sum(years**2 * _get_dloc2(temps, loc, scale, shape))
+
+    # off diagonals
+    hess[0, 1] = np.sum(years * _get_dloc2(temps, loc, scale, shape))
+    hess[1, 0] = hess[0, 1]  # Hessian is symmetric
+
+    # scale and loc derivs
+    hess[0, 2] = np.sum(_get_dloc_dscale(temps, loc, scale, shape))
+    hess[2, 0] = hess[0, 2]  # Hessian is symmetric
+
+    # scale and shape diagonals
+    hess[2, 2] = np.sum(_get_dscale2(temps, loc, scale, shape))
+
+    # scale and loc trend derivatives
+    hess[1, 2] = np.sum(years * _get_dloc_dscale(temps, loc, scale, shape))
+    hess[2, 1] = hess[1, 2]  # Hessian is symmetric
 
     return hess
 

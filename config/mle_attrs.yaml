@@ -77,7 +77,7 @@ fit:
         params: ['shape_t']
         value: 0.0
 
-  stat_fix_shape:
+  stat_gumbel:
     N_params: 2
     param_names: ['loc', 'scale']
     bounds:
@@ -87,7 +87,7 @@ fit:
       - type: eq
         fn: set_param
         params: ['shape']
-        value: -0.5
+        value: -0.0001
       - type: eq
         fn: set_param
         params: ['loc_t']
@@ -99,6 +99,27 @@ fit:
       - type: eq
         fn: set_param
         params: ['shape_t']
+        value: 0.0
+
+  nonstat_gumbel_only_loc_trend:
+    N_params: 3
+    param_names: ['loc', 'loc_t', 'scale']
+    bounds:
+      loc:   [null, null]
+      loc_t: [null, null]
+      scale: [0.0,  null]
+    constraints:
+      - type: eq
+        fn: set_param
+        params: ['shape']
+        value: -0.0001
+      - type: eq
+        fn: set_param
+        params: ['shape_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['scale_t']
         value: 0.0
 
   nonstat_only_loc_trend:

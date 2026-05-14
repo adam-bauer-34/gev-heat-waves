@@ -1,8 +1,7 @@
-"""Testing for stationary MLE with a fixed shape parameter.
+"""Testing for nonstationary MLE.
 
 Adam Bauer
 UChicago
-Apr 2026
 
 Last edited: 4/30/2026, 7:37 PM CST
 """
@@ -40,14 +39,16 @@ def main():
     np.random.seed(4)
 
     # set parameters to use to generate the samples
-    theta_tr = [
+    theta_tr = np.array([
         22.0,  # location
-        0.0,  # location trend
+        2.0,  # location trend
         3.0,  # scale
         0.0, # scale trend
-        -0.5, # shape
+        -0.0001, # shape
         0.0   # shape trend
-    ]
+    ])
+
+    fitted_inds = np.array([0, 1, 2], dtype=int)
 
     # take a number of different sample sizes
     # first is satellite era, second is full reanalysis record, final two are sanity checks
@@ -59,12 +60,12 @@ def main():
         print(f"Sample size: {n} | {desc[i]}")
         print("-" * width)
         samples = gen_samples(theta_tr, n)
-        est_params = _mle_fit(samples, fit_type='stat_fix_shape', SAMPLE_THRES=1)
-        se = get_standard_errors(est_params, samples, fit_type='stat_fix_shape')
+        est_params = _mle_fit(samples, fit_type='nonstat_gumbel_only_loc_trend', SAMPLE_THRES=1)
+        se = get_standard_errors(est_params, samples, fit_type='nonstat_gumbel_only_loc_trend')
 
         print(f"Estimated parameters: {est_params}")
         print(f"Standard errors: {se}")
-        print(f"L2 distance from true parameters: {compute_l2(est_params, [theta_tr[0], theta_tr[2]])}")
+        print(f"L2 distance from true parameters: {compute_l2(est_params, theta_tr[fitted_inds])}")
         print("-" * width)
 
 

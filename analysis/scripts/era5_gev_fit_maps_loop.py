@@ -25,7 +25,7 @@ save_figs = True  # Whether to save the generated figures
 GRID = '1deg'     # Grid resolution for the data
 
 # Parameter lists to loop over
-fits = ['stat_new', 'nonstat_only_loc_trend']  # GEV fit types: stationary and non-stationary
+fits = ['stat_gumbel', 'nonstat_gumbel_only_loc_trend']  # GEV fit types (take from mle_attrs.yaml)
 ex_types = ['max', 'min']                       # Extreme types: maximum and minimum temperatures
 anom_types = ['raw', 'trend', 'annmean']        # Anomaly types: raw data, trend anomalies, annual mean anomalies
 tmins = [1979, 1950]                           # Minimum years for data inclusion
