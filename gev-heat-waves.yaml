@@ -19,5 +19,4 @@ dependencies:
   - xarray=2022.11.0
   - xesmf
   - pip:
-    - ~/personal_python_modules/ambpy
     - mpi4py==4.1.1
