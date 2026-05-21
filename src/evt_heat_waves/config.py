@@ -13,6 +13,7 @@ from pathlib import Path
 
 # unpack config file
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "paths.yaml"
+EXT_DATA_PATH = Path(__file__).parent.parent.parent / "config" / "events_feat.yaml"
 
 with open(CONFIG_PATH, "r") as f:
     CONFIG = yaml.safe_load(f)

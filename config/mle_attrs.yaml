@@ -101,6 +101,30 @@ fit:
         params: ['shape_t']
         value: 0.0
 
+  stat_minxi:
+    N_params: 2
+    param_names: ['loc', 'scale']
+    bounds:
+      loc:   [null, null]
+      scale: [0.0,  null]
+    constraints:
+      - type: eq
+        fn: set_param
+        params: ['shape']
+        value: -0.4999
+      - type: eq
+        fn: set_param
+        params: ['loc_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['scale_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['shape_t']
+        value: 0.0
+
   nonstat_gumbel_only_loc_trend:
     N_params: 3
     param_names: ['loc', 'loc_t', 'scale']
@@ -113,6 +137,27 @@ fit:
         fn: set_param
         params: ['shape']
         value: -0.0001
+      - type: eq
+        fn: set_param
+        params: ['shape_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['scale_t']
+        value: 0.0
+
+  nonstat_minxi_only_loc_trend:
+    N_params: 3
+    param_names: ['loc', 'loc_t', 'scale']
+    bounds:
+      loc:   [null, null]
+      loc_t: [null, null]
+      scale: [0.0,  null]
+    constraints:
+      - type: eq
+        fn: set_param
+        params: ['shape']
+        value: -0.5
       - type: eq
         fn: set_param
         params: ['shape_t']
@@ -143,20 +188,23 @@ fit:
         params: ['scale_t']
         value: 0.0
 
-  nonstat_only_loc_and_shape_trend:
+  nonstat_gumbel_only_loc_and_shape_trend:
     N_params: 4
-    param_names: ['loc', 'loc_t', 'scale', 'scale_t', 'shape']
+    param_names: ['loc', 'loc_t', 'scale', 'scale_t']
     bounds:
       loc:   [null, null]
       loc_t: [null, null]
       scale: [0.0,  null]
       scale_t: [null,  null]
-      shape: [-0.5, 0.0]
     constraints:
+      - type: eq
+        fn: set_param
+        params: ['shape']
+        value: -0.0001
       - type: ineq
         fn: scale_positive_trend
         params: ['scale', 'scale_t']
       - type: eq
         fn: set_param
-        params: ['scale_t']
+        params: ['shape_t']
         value: 0.0

@@ -194,6 +194,80 @@ def get_hessian_nonstat_only_loc_trend(theta_opt, temps):
 
     return hess
 
+def get_hessian_nonstat_only_loc_and_shape_trend_fix_shape(theta_opt, temps, testing=False):
+    """Get the Hessian matrix when there is a trend in the location parameter only.
+
+    Parameters
+    ----------
+    theta_opt: (4,) array-like
+        The optimal MLE parameters (loc, loc_t, scale, scale_t, shape, shape_t)
+
+    temps: (N_years,) array-like
+        temperature data used for MLE fitting
+
+    testing: bool, optional
+        whether we use a single data point for numerical testing
+
+    Returns
+    -------
+    hess: (4, 4) array
+        The Hessian of the negative log likelihood function for the loc trend-only GEV fit
+    """
+
+    # setup
+    hess = np.zeros((len(theta_opt), len(theta_opt)))
+    loc0, loc_t, scale0, scale_t = theta_opt  # unpack parameters
+    if testing:
+        years = np.array([1.])
+    else:
+        years = np.arange(0, len(temps), 1) / len(temps)  # make normalized time variable
+
+    loc = loc0 + loc_t * years  # compute location parameter at each time point
+    scale = scale0 + scale_t * years  # compute scale parameter at each time point
+
+    # set shape value based on the constraint
+    for cons in MLE_FIT_ATTRS['nonstat_gumbel_only_loc_and_shape_trend']['constraints']:
+        if cons['params'][0] == 'shape':
+            shape = cons['value']
+
+    # comput the Hessian using analytical formulas for the second derivatives
+    # the strategy: do this in six sub block, 2x2 matrices
+    
+    # BLOCK 1: loc and loc
+    # diagonals 
+    hess[0, 0] = np.sum(_get_dloc2(temps, loc, scale, shape))
+    hess[1, 1] = np.sum(years**2 * _get_dloc2(temps, loc, scale, shape))
+
+    # off diagonals
+    hess[0, 1] = np.sum(years * _get_dloc2(temps, loc, scale, shape))
+    hess[1, 0] = hess[0, 1]  # symmetry of sub blocks
+
+    # BLOCK 2: loc and scale
+    # diagonals
+    hess[0, 2] = np.sum(_get_dloc_dscale(temps, loc, scale, shape))
+    hess[1, 3] = np.sum(years**2 * _get_dloc_dscale(temps, loc, scale, shape))
+
+    # off diagonals
+    hess[0, 3] = np.sum(years * _get_dloc_dscale(temps, loc, scale, shape))
+    hess[1, 2] = hess[0, 3]  # symmetry of sub blocks
+
+    # exploit symmetry of Hessian
+    hess[2, 0] = hess[0, 2]
+    hess[3, 1] = hess[1, 3]
+    hess[3, 0] = hess[0, 3]
+    hess[2, 1] = hess[1, 2]
+
+    # BLOCK 3: scale and scale
+    # diagonals
+    hess[2, 2] = np.sum(_get_dscale2(temps, loc, scale, shape))
+    hess[3, 3] = np.sum(years**2 * _get_dscale2(temps, loc, scale, shape))
+
+    # off diagonals
+    hess[2, 3] = np.sum(years * _get_dscale2(temps, loc, scale, shape))
+    hess[3, 2] = hess[2, 3]  # symmetry of sub blocks
+
+    return hess 
+
 
 def get_hessian_nonstat(theta_opt, temps, testing=False):
     """Get the Hessian matrix when there is a trend in the location parameter only.
