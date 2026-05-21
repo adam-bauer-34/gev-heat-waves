@@ -292,14 +292,16 @@ def plot_return_level_histogram_grid(
             ax.tick_params(labelbottom=False)
 
         if col_idx == 0:
-            ax.set_ylabel(ylabel)
+            ax.set_ylabel(ylabel, labelpad=10)
         else:
             ax.set_ylabel('')
+
+        ax.yaxis.set_ticks([])
 
         event_label = event_names[event_idx]
         ax.set_title(event_label, fontsize=16, fontweight='bold')
 
-        if row_idx == 0 and col_idx == n_cols - 1:
+        if row_idx == 0 and col_idx == 0:
             ax.legend(loc='center right', fontsize=13)
 
         ax.grid(False)
