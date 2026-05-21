@@ -13,6 +13,7 @@ from pathlib import Path
 
 # unpack config file
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "paths.yaml"
+EXT_DATA_PATH = Path(__file__).parent.parent.parent / "config" / "events_feat.yaml"
 
 with open(CONFIG_PATH, "r") as f:
     CONFIG = yaml.safe_load(f)
@@ -21,12 +22,13 @@ with open(CONFIG_PATH, "r") as f:
 DATA_ROOT = Path(CONFIG["DATA_ROOT"])
 
 FIGS_PATH = Path(CONFIG["FIGS_PATH"])
+CHECKS_PATH = Path(CONFIG["CHECKS_PATH"])
 ERA5_PATH = DATA_ROOT / CONFIG["ERA5_DIR"]
 CMIP_PATH = DATA_ROOT / CONFIG["CMIP_DIR"]
 AMIP_PATH = DATA_ROOT / CONFIG["AMIP_DIR"]
 STATS_PATH = DATA_ROOT / CONFIG["STATS_DIR"]
 
-# mapping for args.fit -> data path
+# mapping for args.data -> data path
 MIP_FIT_PATH_DICT = {
     'cmip': {
         'data': CMIP_PATH,

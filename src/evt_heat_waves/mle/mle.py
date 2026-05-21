@@ -322,7 +322,7 @@ def _assign_params(args, ds, var_name, gev_params, gev_se, all_mems):
     """
 
     # spatial dims depend on whether we're fitting across ensemble members
-    spatial_dims = ('member_id', 'lat', 'lon') if all_mems else ('lat', 'lon')
+    spatial_dims = ('lat', 'lon')
 
     # map variable name to the suffix used in dataset variable names
     suffix_map = {
@@ -347,67 +347,3 @@ def _assign_params(args, ds, var_name, gev_params, gev_se, all_mems):
         ds = ds.assign({f'se_{pname}': (spatial_dims, gev_se.data[..., i])})
 
     return ds
-
-
-# test cases
-if __name__ == '__main__':
-    import pandas as pd
-    from scipy.stats import genextreme
-    import time
-
-    # simple test case
-    np.random.seed(42)
-    sample_sizes = [10**i for i in range(1, 5)]
-    non_stat_l2 = []
-    stat_l2 = []
-    times = []
-    for ss in sample_sizes:
-        t0 = time.time()
-        print(f"Sample size: {ss}")
-        data = genextreme.rvs(c=-0.1, loc=2, scale=1, size=ss)
-        params = _mle_fit(data, SAMPLE_THRES=10, non_stat=False)
-
-        tmp_stat_l2 = np.sqrt(
-            (params[0] - 2)**2 +
-            (params[1] - 1)**2 +
-            (params[2] - 0.1)**2
-        )
-        stat_l2.append(tmp_stat_l2)
-        print(f"Stationary fit params: {params}")
-
-        params_nonstat = [1.0, 0.01, 1.0, 0.02, 0.1, 0.001]
-        years = np.arange(0, ss, 1) / ss  # 100 years of real data
-        data_nonstat = np.array([genextreme.rvs(
-            c=-(params_nonstat[4] + params_nonstat[5] * t),
-            loc=(params_nonstat[0] + params_nonstat[1] * t),
-            scale=(params_nonstat[2] + params_nonstat[3] * t),
-            size=1)[0] for t in years])
-    
-        fitted_param_nonstat = _mle_fit(data_nonstat, SAMPLE_THRES=10, non_stat=True)
-        tmp_nonstat_l2 = np.sqrt(
-            (fitted_param_nonstat[0] - params_nonstat[0])**2 +
-            (fitted_param_nonstat[1] - params_nonstat[1])**2 +
-            (fitted_param_nonstat[2] - params_nonstat[2])**2 +
-            (fitted_param_nonstat[3] - params_nonstat[3])**2 +
-            (fitted_param_nonstat[4] - params_nonstat[4])**2 +
-            (fitted_param_nonstat[5] - params_nonstat[5])**2
-        )
-        non_stat_l2.append(tmp_nonstat_l2)
-        print(f"Nonstationary fit params: {fitted_param_nonstat}")
-
-        # record elapsed time for this iteration
-        times.append(time.time() - t0)
-
-    # Create DataFrame and save to CSV
-    df = pd.DataFrame({
-        'sample_size': sample_sizes,
-        'stationary_l2_error': stat_l2,
-        'nonstationary_l2_error': non_stat_l2,
-        'iteration_time': times
-    })
-
-    # print dataframe and save to data/checks
-    print(df)
-
-    # df.to_csv('data/checks/mle_sample_size_l2_stat_nonstat.csv', index=False)
-    # print("\nDataFrame saved to data/checks/mle_sample_size_l2_stat_nonstat.csv")

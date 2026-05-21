@@ -92,7 +92,7 @@ def process_single_fit(logger, args, var, anom_type, model_with_most, mem, fpath
         # suffix depends on whether this is a raw or anomaly fit
         sfx = anom_type if anom_type == 'raw' else f'anom_{anom_type}'
         gev_param_names = [
-            f'{p}_{sfx}' for p in MLE_FIT_ATTRS[anom_type]['param_names']
+            f'{p}_{sfx}' for p in MLE_FIT_ATTRS[args.fit]['param_names']
         ]
         
         # Convert dataset to dictionary of arrays
