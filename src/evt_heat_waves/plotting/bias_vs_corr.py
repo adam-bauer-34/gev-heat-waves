@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt 
 from scipy.stats import linregress
+import pandas as pd
 
 from evt_heat_waves.config import (
     MLE_FIT_ATTRS,
@@ -369,9 +370,10 @@ def plot_bias_vs_corr(abs_dev_prim, r2s_prim,
                       label=f'{model_with_most} Ensemble Members' if mdx == 0 else None)
             a.set_title(corr_title_map[param])
             if idx in corr_plot_attrs[N_params]['have_ylabels']:
-                a.set_ylabel("r$^2$")
+                a.set_ylabel("r$^2$", fontsize=18)
             if idx in corr_plot_attrs[N_params]['have_xlabels']:
-                a.set_xlabel(xlabels[med_or_mean].replace('Absolute ', '').replace('absolute ', ''))
+                a.set_xlabel(xlabels[med_or_mean].replace('Absolute ', '').replace('absolute ', ''),
+                             fontsize=18)
 
     # Set axis limits per panel
     for idx, (a, var) in enumerate(zip(ax.flatten(), param_order)):
@@ -477,3 +479,28 @@ def mutual_mask_perc(x, y, p_lo, p_hi):
     ]
 
     return xfinal, yfinal
+
+def print_summary(r2s_prim, r2s_most, cmip_config, cmip_variable, model_with_most, N_members, fit):
+    """Compute summary statistics and print R^2 comparisons for primary vs merged members."""
+    merged_dict = {var: np.hstack([r2s_prim[var], r2s_most[var]]) for var in r2s_prim.keys()}
+
+    models = list(cmip_config.iter_active_models(cmip_variable))
+    prim_index = [m.name for m in models]
+    merged_index = prim_index + [f'{model_with_most}_member_{i}' for i in range(N_members)]
+
+    df_prim = pd.DataFrame(r2s_prim, index=prim_index)
+    df_merged = pd.DataFrame(merged_dict, index=merged_index)
+
+    prim_means = df_prim.mean()
+    merged_means = df_merged.mean()
+    prim_meds = df_prim.median()
+    merged_meds = df_merged.median()
+    prim_maxs = df_prim.max()
+    merged_maxs = df_merged.max()
+
+    print("SUMMARY STATISTICS")
+    print("-" * 80)
+    for p in MLE_FIT_ATTRS[fit]['param_names']:
+        print(f"Parameter: {p}")
+        print(f"    Primary members only - mean R^2: {prim_means[p]:.3f}, median R^2: {prim_meds[p]:.3f}, max R^2: {prim_maxs[p]:.3f}")
+        print(f"    Primary + all members - mean R^2: {merged_means[p]:.3f}, median R^2: {merged_meds[p]:.3f}, max R^2: {merged_maxs[p]:.3f}\n")

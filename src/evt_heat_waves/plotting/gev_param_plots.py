@@ -310,7 +310,7 @@ def print_summary(ds, fit, anom_type):
         anom_var_name = f'anom_{anom_type}'
 
     for param in MLE_FIT_ATTRS[fit]['param_names']:
-        print(f"The area weighted average for {param} is {area_weighted_average(ds, f'{param}_{anom_var_name}', 1, 99)}")
+        print(f"The area weighted average for {param} is {area_weighted_average(ds, f'{param}_{anom_var_name}', 1, 99)} +/- {area_weighted_average(ds, f'se_{param}_{anom_var_name}', 1, 99)}")
 
 
 def print_trend_significance(ds, fit, anom_type, n_se=2):

@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.lines as mlines
 import xarray as xr
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -161,6 +163,7 @@ def plot_return_level_histogram_grid(
     return_period_list,
     event_indices,
     return_periods=None,
+    era5_return_levels=None,
     event_names=None,
     grid_shape=(3, 2),
     bins=20,
@@ -183,6 +186,9 @@ def plot_return_level_histogram_grid(
         Indices of events (locations) to plot. Length should equal grid_shape[0] * grid_shape[1].
     return_periods : array-like
         Array of return periods corresponding to the last axis of return_levels.
+    era5_return_levels : array-like or None
+        Array with shape (N_events, N_return_periods) in Kelvin. If provided, a dashed
+        vertical line is drawn at the ERA5 return level for each return period.
     event_names : list[str] or None
         Names for each event/location.
     grid_shape : tuple, default=(3, 2)
@@ -203,7 +209,7 @@ def plot_return_level_histogram_grid(
 
     if return_periods is None:
         raise ValueError("return_periods must be provided")
-    
+
     if event_names is None:
         event_names = [f"event_{i}" for i in range(return_levels.shape[0])]
 
@@ -268,6 +274,17 @@ def plot_return_level_histogram_grid(
                 color = color_palette[i % len(color_palette)]
                 ax.hist(values, bins=bins, alpha=0.5, edgecolor='black',
                         label=format_rp_label(rp), color=color)
+
+                # Solid vertical line at the median of CMIP6 models
+                median_val = np.median(values)
+                ax.axvline(median_val, color=color, linestyle='solid', linewidth=1.5)
+
+                # Dashed vertical line at ERA5 return level
+                if era5_return_levels is not None:
+                    era5_val = float(np.asarray(era5_return_levels)[event_idx, rp_idx]) - 273.15
+                    if np.isfinite(era5_val):
+                        ax.axvline(era5_val, color=color, linestyle='dashed', linewidth=1.5)
+
             ylabel = "Count"
 
         else:  # kde
@@ -279,8 +296,20 @@ def plot_return_level_histogram_grid(
                     continue
                 kde = stats.gaussian_kde(values)
                 color = color_palette[i % len(color_palette)]
-                ax.plot(x_range, kde(x_range), color=color, linewidth=2, label=format_rp_label(rp), linestyle='solid')
+                ax.plot(x_range, kde(x_range), color=color, linewidth=2,
+                        label=format_rp_label(rp), linestyle='solid')
                 ax.fill_between(x_range, kde(x_range), alpha=0.2, color=color)
+
+                # Solid vertical line at the median of CMIP6 models
+                median_val = np.median(values)
+                ax.axvline(median_val, color=color, linestyle='solid', linewidth=1.5)
+
+                # Dashed vertical line at ERA5 return level
+                if era5_return_levels is not None:
+                    era5_val = float(np.asarray(era5_return_levels)[event_idx, rp_idx]) - 273.15
+                    if np.isfinite(era5_val):
+                        ax.axvline(era5_val, color=color, linestyle='dashed', linewidth=1.5)
+
             ylabel = "Density"
 
         ax.set_xlim(x_min_rounded, 50)
@@ -302,7 +331,19 @@ def plot_return_level_histogram_grid(
         ax.set_title(event_label, fontsize=16, fontweight='bold')
 
         if row_idx == 0 and col_idx == 0:
-            ax.legend(loc='center right', fontsize=13)
+            # Return period legend entries (colour swatches from histogram/KDE)
+            rp_handles = [
+                mpatches.Patch(color=color_palette[i % len(color_palette)],
+                               alpha=0.5, label=format_rp_label(rp))
+                for i, rp in enumerate(return_period_list)
+            ]
+            # Grey line entries for CMIP6 median and ERA5
+            cmip6_handle = mlines.Line2D([], [], color='grey', linestyle='solid',
+                                         linewidth=1.5, label='CMIP6 Models')
+            era5_handle = mlines.Line2D([], [], color='grey', linestyle='dashed',
+                                        linewidth=1.5, label='ERA5 Reanalysis')
+            all_handles = rp_handles + [cmip6_handle, era5_handle]
+            ax.legend(handles=all_handles, loc='center right', fontsize=13)
 
         ax.grid(False)
 
