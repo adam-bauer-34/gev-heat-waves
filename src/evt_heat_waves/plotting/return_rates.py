@@ -481,7 +481,7 @@ def plot_return_level_histogram_grid(
                 color="grey",
                 linestyle="solid",
                 linewidth=1.5,
-                label="CMIP6 Models",
+                label="CMIP6 Ensemble Median",
             )
             era5_handle = mlines.Line2D(
                 [],
