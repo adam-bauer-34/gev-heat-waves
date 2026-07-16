@@ -208,3 +208,24 @@ fit:
         fn: set_param
         params: ['shape_t']
         value: 0.0
+
+  nonstat_kleinxi_only_loc_trend:
+    N_params: 3
+    param_names: ['loc', 'loc_t', 'scale']
+    bounds:
+      loc:   [null, null]
+      loc_t: [null, null]
+      scale: [0.0,  null]
+    constraints:
+      - type: eq
+        fn: set_param
+        params: ['shape']
+        value: -0.25
+      - type: eq
+        fn: set_param
+        params: ['shape_t']
+        value: 0.0
+      - type: eq
+        fn: set_param
+        params: ['scale_t']
+        value: 0.0

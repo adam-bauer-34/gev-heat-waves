@@ -16,8 +16,7 @@ width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 
 def main():
-    """Main function for simulation setup and running.
-    """
+    """Main function for simulation setup and running."""
 
     # parse arguments
     args = parse_args_pproc()
@@ -33,9 +32,11 @@ def main():
 
     # run preprocessing for the passed data type
     try:
-        run_pproc = PPROC_REGISTRY[args.data]['runner']
+        run_pproc = PPROC_REGISTRY[args.data]["runner"]
     except KeyError:
-        raise ValueError(f"Data type {args.data} doesn't exist in data registry:\n{PPROC_REGISTRY}")
+        raise ValueError(
+            f"Data type {args.data} doesn't exist in data registry:\n{PPROC_REGISTRY}"
+        )
 
     run_pproc(logger, args)
 
@@ -44,6 +45,7 @@ def main():
     # log finish
     logger.info("Preprocessing complete!")
     logger.info(f"Total runtime: {t1 - t0:.2f}s.")
+
 
 if __name__ == "__main__":
     main()
