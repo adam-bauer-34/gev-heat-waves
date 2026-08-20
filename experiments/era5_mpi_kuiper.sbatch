@@ -22,7 +22,13 @@
 # How to use:
 #   1. set ntasks-per-node = N_anomaly_types * N_tmins * N_data_types (= 12 in general)
 #   2. make sure you don't ask for too much time or you'll sit in queue forever!
-#   
+#   3. --free_fit / --n_reps only matter when --fit holds the shape parameter
+#      fixed (stat_gumbel, stat_minxi); they drive the Kuiper misspecification
+#      test. Both are optional -- python owns the defaults (stat_new, 1).
+#   4. WATCH THE WALLTIME: the misspecification test costs ~2 * n_reps times the
+#      syn_k pass. A --fit stat_new run is ~15 min/task; n_reps=1 lands ~45 min,
+#      n_reps=3 is near the 2h limit, n_reps>=4 needs more time requested.
+#
 # Basic structure:
 #   1. Make log directory if it doesn't exist and relevant outfiles.
 #   2. Set up python (miniforge and ./.env) and MPI environments (using openmpi)
@@ -33,8 +39,12 @@
 # PARSE CLI ARGUMENTS
 # =================================================================================
 
+USAGE="Usage: sbatch $0 --fit <arg> --grid <arg> [--free_fit <arg>] [--n_reps <int>]"
+
 FIT_ARG=""
 GRID_ARG=""
+FREE_FIT_ARG=""
+N_REPS_ARG=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -46,9 +56,17 @@ while [[ $# -gt 0 ]]; do
             GRID_ARG="$2"
             shift 2
             ;;
+        --free_fit)
+            FREE_FIT_ARG="$2"
+            shift 2
+            ;;
+        --n_reps)
+            N_REPS_ARG="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1"
-            echo "Usage: sbatch $0 --fit <arg> --grid <arg>"
+            echo "${USAGE}"
             exit 1
             ;;
     esac
@@ -57,14 +75,26 @@ done
 # Validate required arguments
 if [[ -z "$FIT_ARG" ]]; then
     echo "ERROR: --fit argument is required."
-    echo "Usage: sbatch $0 --fit <arg> --grid <arg>"
+    echo "${USAGE}"
     exit 1
 fi
 
 if [[ -z "$GRID_ARG" ]]; then
     echo "ERROR: --grid argument is required."
-    echo "Usage: sbatch $0 --fit <arg> --grid <arg>"
+    echo "${USAGE}"
     exit 1
+fi
+
+# Optional arguments are only forwarded when actually set, so the python CLI
+# stays the single source of truth for their defaults
+OPT_ARGS=()
+
+if [[ -n "$FREE_FIT_ARG" ]]; then
+    OPT_ARGS+=(--free_fit "$FREE_FIT_ARG")
+fi
+
+if [[ -n "$N_REPS_ARG" ]]; then
+    OPT_ARGS+=(--n_reps "$N_REPS_ARG")
 fi
 
 # =================================================================================
@@ -99,7 +129,7 @@ touch "${OUTFILE}"
     echo "Memory per CPU: $SLURM_MEM_PER_CPU MB"
     echo "Partition: $SLURM_JOB_PARTITION"
     echo ""
-    echo "CLI Arguments: --fit ${FIT_ARG} --grid ${GRID_ARG}"
+    echo "CLI Arguments: --fit ${FIT_ARG} --grid ${GRID_ARG} ${OPT_ARGS[*]}"
     echo ""
 } > "${OUTFILE}"
 
@@ -173,7 +203,7 @@ echo ""
 echo "============================================================"
 echo "Running main file"
 echo "============================================================"
-echo "Command: mpirun [mpi-config-stuff] python -m src.evt_heat_waves.era5.main_mpi_kuiper --fit ${FIT_ARG} --grid ${GRID_ARG}"
+echo "Command: mpirun [mpi-config-stuff] python -m src.evt_heat_waves.era5.main_mpi_kuiper --fit ${FIT_ARG} --grid ${GRID_ARG} ${OPT_ARGS[*]}"
 echo "Starting at: $(date)"
 echo ""
 
@@ -186,7 +216,7 @@ mpirun -np $SLURM_NTASKS \
     --mca plm slurm \
     --mca btl tcp,self \
     --mca btl_base_warn_component_unused 0 \
-    python -m src.evt_heat_waves.era5.main_mpi_kuiper --fit "${FIT_ARG}" --grid "${GRID_ARG}"
+    python -m src.evt_heat_waves.era5.main_mpi_kuiper --fit "${FIT_ARG}" --grid "${GRID_ARG}" "${OPT_ARGS[@]}"
 
 # record status of previous run
 STATUS=$?

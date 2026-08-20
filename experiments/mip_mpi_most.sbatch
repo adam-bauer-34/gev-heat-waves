@@ -24,7 +24,10 @@
 #      3 fitting routines (since there are two variables, daily max/min, which
 #      sets the number of nodes).
 #   2. make sure you don't ask for too much time or you'll sit in queue forever!
-# 
+#   3. optionally pass --model <name> to fit a specific model instead of the
+#      one with the most ensemble members in the config data. omit it entirely
+#      to keep the old (config-driven) behavior.
+#
 # Basic structure:
 #   1. Make log directory if it doesn't exist and relevant outfiles.
 #   2. Set up python (miniforge and ./.env) and MPI environments (using openmpi)
@@ -36,8 +39,11 @@
 # PARSE CLI ARGUMENTS
 # =================================================================================
 
+USAGE="Usage: sbatch $0 --data <arg> --fit <arg> [--model <model_name>]"
+
 DATA_ARG=""
 FIT_ARG=""
+MODEL_ARG=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -49,9 +55,13 @@ while [[ $# -gt 0 ]]; do
             FIT_ARG="$2"
             shift 2
             ;;
+        --model)
+            MODEL_ARG="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1"
-            echo "Usage: sbatch $0 --data <arg> --fit <arg>"
+            echo "${USAGE}"
             exit 1
             ;;
     esac
@@ -60,14 +70,24 @@ done
 # Validate required arguments
 if [[ -z "$DATA_ARG" ]]; then
     echo "ERROR: --data argument is required."
-    echo "Usage: sbatch $0 --data <arg> --fit <arg>"
+    echo "${USAGE}"
     exit 1
 fi
 
 if [[ -z "$FIT_ARG" ]]; then
     echo "ERROR: --fit argument is required."
-    echo "Usage: sbatch $0 --data <arg> --fit <arg>"
+    echo "${USAGE}"
     exit 1
+fi
+
+# --model is OPTIONAL. If it's not given we pass nothing through to python, so
+# argparse falls back to its default (model=None), which makes the fitting code
+# pick the model with the most ensemble members from the config data.
+MODEL_OPT=()
+MODEL_DESC="<none: use model with most members from config>"
+if [[ -n "$MODEL_ARG" ]]; then
+    MODEL_OPT=(--model "$MODEL_ARG")
+    MODEL_DESC="${MODEL_ARG}"
 fi
 
 # =================================================================================
@@ -79,6 +99,7 @@ echo "Starting CMIP6 GEV Fitting Job with MPI Parallelization"
 echo "============================================================"
 echo "Job started at: $(date)"
 echo "Arguments: --data ${DATA_ARG} --fit ${FIT_ARG}"
+echo "Model: ${MODEL_DESC}"
 echo ""
 
 # Ensure the logs directory exists
@@ -104,6 +125,7 @@ touch "${OUTFILE}"
     echo "Partition: $SLURM_JOB_PARTITION"
     echo ""
     echo "CLI Arguments: --data ${DATA_ARG} --fit ${FIT_ARG}"
+    echo "Model: ${MODEL_DESC}"
     echo ""
     echo "Strategy: Each of 3 fits per model runs as independent MPI task"
     echo "Maximum parallelism: $(($SLURM_NTASKS / 3)) fits can be processed simultaneously"
@@ -181,7 +203,7 @@ echo ""
 echo "============================================================"
 echo "Running main file"
 echo "============================================================"
-echo "Command: mpirun [mpi-config-stuff] python -m src.evt_heat_waves.mip_fit.main_mpi_most --data ${DATA_ARG} --fit ${FIT_ARG}"
+echo "Command: mpirun [mpi-config-stuff] python -m src.evt_heat_waves.mip_fit.main_mpi_most --data ${DATA_ARG} --fit ${FIT_ARG} ${MODEL_OPT[*]}"
 echo "Starting at: $(date)"
 echo ""
 
@@ -194,7 +216,7 @@ mpirun -np $SLURM_NTASKS \
     --mca plm slurm \
     --mca btl tcp,self \
     --mca btl_base_warn_component_unused 0 \
-    python -m src.evt_heat_waves.mip_fit.main_mpi_most --data "${DATA_ARG}" --fit "${FIT_ARG}"
+    python -m src.evt_heat_waves.mip_fit.main_mpi_most --data "${DATA_ARG}" --fit "${FIT_ARG}" "${MODEL_OPT[@]}"
 
 # record status of previous run
 STATUS=$?

@@ -5,6 +5,7 @@ UChicago
 Apr 2026
 """
 
+import copy
 import shutil
 import traceback
 import time
@@ -13,7 +14,10 @@ import xarray as xr
 
 from evt_heat_waves.config import ERA5_PATH, ANOM_TYPE_TO_VAR
 from evt_heat_waves.mle.mle import ds_mle_fit
-from evt_heat_waves.era5.kuiper.kuiper_fitting import compute_kuiper_stats
+from evt_heat_waves.era5.kuiper.kuiper_fitting import (
+    compute_kuiper_stats,
+    _fixed_shape,
+)
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
@@ -148,7 +152,7 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type):
 
         logger.debug(f"The anomaly type {anom_type} was converted to variable name {var_name}")
 
-        fpath = data_path.parent / 'gev' / f"era5_{var}_{args.grid}_landonly_gev_stat_TMIN{TMIN}_{anom_type}.nc"
+        fpath = data_path.parent / 'gev' / f"era5_{var}_{args.grid}_landonly_gev_{args.fit}_TMIN{TMIN}_{anom_type}.nc"
         try:
             ds = xr.open_dataset(fpath)
             
@@ -163,10 +167,35 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type):
                 fit_dim='year'
             )
 
+        # the misspecification test draws from a free-shape fit of the same data,
+        # so it needs that fit alongside the fixed-shape one being tested
+        ds_free = None
+        if _fixed_shape(args.fit) is not None:
+            free_fpath = fpath.parent / f"era5_{var}_{args.grid}_landonly_gev_{args.free_fit}_TMIN{TMIN}_{anom_type}.nc"
+            try:
+                ds_free = xr.open_dataset(free_fpath)
+
+            except FileNotFoundError:
+                logger.warning(f"Free-shape ({args.free_fit}) fit dataset not found for {var}:{anom_type} "
+                               f"with TMIN={TMIN}. Running MLE fit to create it for the misspecification test.")
+                free_args = copy.copy(args)
+                free_args.fit = args.free_fit
+                ds_free = xr.open_dataset(data_path / f"era5_{var}_{args.grid}_landonly.nc").sel(year=slice(TMIN, 2024))
+                ds_free = ds_mle_fit(
+                    free_args,
+                    ds_free,
+                    var_name=var_name,
+                    fit_dim='year'
+                )
+
         ds_kuiper = compute_kuiper_stats(
             ds,
             var_name=var_name,
-            fit_dim='year'
+            fit_dim='year',
+            fit_type=args.fit,
+            ds_free=ds_free,
+            free_fit_type=args.free_fit,
+            n_reps=args.n_reps
         )
 
         logger.debug(f"Kuiper statistics-fitted dataset:\n {ds_kuiper}")
@@ -184,6 +213,8 @@ def process_single_kuiper(logger, args, var, TMIN, anom_type):
 
         ds_kuiper.close()
         ds.close()
+        if ds_free is not None:
+            ds_free.close()
 
         return (True, anom_type, output_path, None)
 

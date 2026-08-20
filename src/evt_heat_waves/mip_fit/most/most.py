@@ -63,11 +63,15 @@ def runner(logger, args):
         var_data_path = data_path / var / 'landonly'
 
         model_with_most, fpath, n_members, tied_models = find_model_with_most_members(
-            var, CMIPConfig, var_data_path
+            var, CMIPConfig, var_data_path, model=getattr(args, 'model', None)
         )
 
-        message = (f"Identified {model_with_most} as model with most ensemble "
-                   f"members (has {n_members} members).")
+        if getattr(args, 'model', None) is not None:
+            message = (f"Using {model_with_most} as requested on the CLI "
+                       f"(has {n_members} members).")
+        else:
+            message = (f"Identified {model_with_most} as model with most ensemble "
+                       f"members (has {n_members} members).")
         logger.info(message)
 
         if tied_models:
@@ -337,10 +341,13 @@ def combine_results_into_datasets(logger, args, all_results, model_with_most, fp
     return output_paths
 
 
-def find_model_with_most_members(var, CMIPConfig, data_path):
+def find_model_with_most_members(var, CMIPConfig, data_path, model=None):
     """
-    Find the model with the most ensemble members for a given variable.
-    
+    Find the model to fit for a given variable.
+
+    If `model` is passed, that model is used directly; otherwise we fall back to
+    the model with the most ensemble members in the config data.
+
     Parameters
     ----------
     var : str
@@ -349,7 +356,10 @@ def find_model_with_most_members(var, CMIPConfig, data_path):
         CMIP configuration object
     data_path : Path
         Path to data directory
-        
+    model : str, optional
+        Model name to use instead of searching the config for the model with the
+        most ensemble members
+
     Returns
     -------
     tuple
@@ -359,6 +369,29 @@ def find_model_with_most_members(var, CMIPConfig, data_path):
     modelname_filepath_matcher = {
         extract_model_name(f): f for f in fnames
     }
+
+    # CLI override: use the requested model rather than searching the config
+    if model is not None:
+        if model not in modelname_filepath_matcher:
+            raise ValueError(
+                f"No landonly file found for requested model '{model}' in "
+                f"{data_path}. Available models: "
+                f"{sorted(modelname_filepath_matcher.keys())}"
+            )
+
+        active_models = {m.name: m for m in CMIPConfig.iter_active_models(var)}
+        if model not in active_models:
+            raise ValueError(
+                f"Requested model '{model}' is not active for variable '{var}'. "
+                f"Active models: {sorted(active_models.keys())}"
+            )
+
+        return (
+            model,
+            modelname_filepath_matcher[model],
+            len(active_models[model].all_members),
+            None,
+        )
 
     Nens_for_active_models = np.array([
         len(m.all_members) for m in CMIPConfig.iter_active_models(var)

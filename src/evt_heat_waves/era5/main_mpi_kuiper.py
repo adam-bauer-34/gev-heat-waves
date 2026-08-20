@@ -14,18 +14,21 @@ import time
 from mpi4py import MPI
 
 from evt_heat_waves.logging_utils import setup_logger, get_git_hash
-from evt_heat_waves.era5.cli import parse_args_era5_fit, check_kuiper_config_compatability
+from evt_heat_waves.era5.cli import (
+    parse_args_era5_fit,
+    check_kuiper_config_compatability,
+)
 from evt_heat_waves.era5.kuiper.kuipers_mpi import process_single_kuiper, print_summary
 
 width = shutil.get_terminal_size(fallback=(80, 20)).columns
 
 
-def main():    
+def main():
     # Initialize MPI
     comm = MPI.COMM_WORLD  # communicator object -- allows communication across tasks
     rank = comm.Get_rank()  # gets *this* process's unique ID
     size = comm.Get_size()  # total number of processes
-    
+
     # Only rank 0 does initial setup and task distribution
     ## rank 0 does all the initial setup and distribution because I/O operations
     ## like reading .yaml files and so on don't parallelize well
@@ -36,41 +39,41 @@ def main():
         logger = setup_logger(args.debug)
 
         start_time = time.time()
-        logger.info('-' * width)
+        logger.info("-" * width)
         logger.info(f"Git hash: {get_git_hash()}")
-        logger.info(f"Doing GEV fitting for config: {args.fit}|{args.grid}|NO_SE={args.no_se}")
-        
+        logger.info(
+            f"Doing Kuiper analysis for config: {args.fit}|{args.grid}|NO_SE={args.no_se}"
+            f"|FREE_FIT={args.free_fit}|N_REPS={args.n_reps}"
+        )
+
         # Define variables, stationary/nonstationary, and anomaly types to parallelize over
-        vars = ['t2m_annual_max', 't2m_annual_min']
-        anom_types = ['raw', 'annmean', 'trend']
+        vars = ["t2m_annual_max", "t2m_annual_min"]
+        anom_types = ["raw", "annmean", "trend"]
         tmins = [1950, 1979]
-        
+
         # Collect all tasks (each fit is now a separate task)
         all_tasks = []
-        
+
         for var in vars:
             logger.info(f"Setting up tasks for: {var}")
-            
+
             # Collect tasks for this variable
             # Now we create 3 tasks per model (one for each fit type)
             for TMIN in tmins:
                 for anom_type in anom_types:
-                    all_tasks.append({
-                        'args': args,
-                        'var': var,
-                        'TMIN': TMIN,
-                        'anom_type': anom_type
-                    })
-        
+                    all_tasks.append(
+                        {"args": args, "var": var, "TMIN": TMIN, "anom_type": anom_type}
+                    )
+
         logger.info(f"Total tasks to process: {len(all_tasks)}")
         logger.info(f"Number of MPI processes: {size}")
         logger.info(f"Tasks per process: ~{len(all_tasks) / size:.1f}")
-    
+
     # other workers are idle while all of this gets setup since I/O and task setup
     # is not easily parallelizable
     else:
         all_tasks = None
-    
+
     # Broadcast tasks to all processes
     all_tasks = comm.bcast(all_tasks, root=0)  # set root rank to zero
     logger = setup_logger(True)
@@ -79,31 +82,35 @@ def main():
     # Distribute tasks using round-robin distribution
     # this is good for tasks that take about as long to take as one another
     my_tasks = [task for i, task in enumerate(all_tasks) if i % size == rank]
-    
+
     logger.info(f"[Rank {rank}] Processing {len(my_tasks)} tasks")
-    
+
     # Process assigned tasks
     ## each task runs this independently, since it is embarrassingly parallelizable
-    my_results = []  # "my" refers to the task that's running this -- it's different for each one
-    
+    my_results = (
+        []
+    )  # "my" refers to the task that's running this -- it's different for each one
+
     # loop through tasks for this rank and perform operations...
     for task_idx, task in enumerate(my_tasks):
-        logger.info(f"[Rank {rank}] Processing task {task_idx+1}/{len(my_tasks)}: "
-              f"{task['var']}:{task['TMIN']}:{task['anom_type']}")
-        
+        logger.info(
+            f"[Rank {rank}] Processing task {task_idx+1}/{len(my_tasks)}: "
+            f"{task['var']}:{task['TMIN']}:{task['anom_type']}"
+        )
+
         result = process_single_kuiper(
             logger=logger,
-            args=task['args'],
-            var=task['var'],
-            TMIN=task['TMIN'],
-            anom_type=task['anom_type'],
-            rank=rank
+            args=task["args"],
+            var=task["var"],
+            TMIN=task["TMIN"],
+            anom_type=task["anom_type"],
+            rank=rank,
         )
         my_results.append(result)
-    
+
     # Gather all results to rank 0
     all_results = comm.gather(my_results, root=0)
-    
+
     # Rank 0 prints summary
     if rank == 0:
         # Flatten results
@@ -115,6 +122,7 @@ def main():
 
         logger.info(f"Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
         logger.info(f"Average time per task: {elapsed/len(flat_results):.2f} seconds")
+
 
 if __name__ == "__main__":
     main()

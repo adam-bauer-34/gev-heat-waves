@@ -40,6 +40,13 @@ def parse_args_mip_fit():
     )
 
     parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="[most only!] Name of the model to fit (e.g. MIROC6). If unset, falls back to the model with the most ensemble members in the config data."
+    )
+
+    parser.add_argument(
         "--mpi",
         action='store_true',
         default=False,
